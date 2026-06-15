@@ -2135,6 +2135,134 @@ function createHandMesh() {
   handMesh.rotation.set(-0.1, -0.3, 0);
 }
 
+function getToolColor(item) {
+  let n = item.name.toLowerCase();
+  if (n.includes('diamond')) return { head: 0x5cf2f2, dark: 0x3cc8c8 };
+  if (n.includes('iron')) return { head: 0xd8d8d8, dark: 0xaaaaaa };
+  if (n.includes('stone')) return { head: 0x999999, dark: 0x777777 };
+  return { head: 0xc8a84e, dark: 0xa08030 };
+}
+
+function buildSword3D(item) {
+  let g = new THREE.Group();
+  let col = getToolColor(item);
+  // Blade — thin box
+  let bladeGeo = new THREE.BoxGeometry(0.06, 0.5, 0.02);
+  let bladeMat = new THREE.MeshLambertMaterial({ color: col.head });
+  let blade = new THREE.Mesh(bladeGeo, bladeMat);
+  blade.position.set(0, 0.2, 0);
+  g.add(blade);
+  // Blade edge highlight
+  let edgeGeo = new THREE.BoxGeometry(0.02, 0.5, 0.025);
+  let edgeMat = new THREE.MeshLambertMaterial({ color: col.dark });
+  let edge = new THREE.Mesh(edgeGeo, edgeMat);
+  edge.position.set(-0.025, 0.2, 0);
+  g.add(edge);
+  // Blade tip
+  let tipGeo = new THREE.BoxGeometry(0.04, 0.06, 0.02);
+  let tip = new THREE.Mesh(tipGeo, bladeMat);
+  tip.position.set(0, 0.48, 0);
+  g.add(tip);
+  // Crossguard
+  let guardGeo = new THREE.BoxGeometry(0.16, 0.04, 0.04);
+  let guardMat = new THREE.MeshLambertMaterial({ color: 0x8B6914 });
+  let guard = new THREE.Mesh(guardGeo, guardMat);
+  guard.position.set(0, -0.06, 0);
+  g.add(guard);
+  // Handle
+  let handleGeo = new THREE.BoxGeometry(0.04, 0.2, 0.04);
+  let handleMat = new THREE.MeshLambertMaterial({ color: 0x654321 });
+  let handle = new THREE.Mesh(handleGeo, handleMat);
+  handle.position.set(0, -0.18, 0);
+  g.add(handle);
+  // Pommel
+  let pommelGeo = new THREE.BoxGeometry(0.06, 0.04, 0.04);
+  let pommel = new THREE.Mesh(pommelGeo, guardMat);
+  pommel.position.set(0, -0.3, 0);
+  g.add(pommel);
+  return g;
+}
+
+function buildPickaxe3D(item) {
+  let g = new THREE.Group();
+  let col = getToolColor(item);
+  // Handle
+  let handleGeo = new THREE.BoxGeometry(0.04, 0.55, 0.04);
+  let handleMat = new THREE.MeshLambertMaterial({ color: 0x654321 });
+  let handle = new THREE.Mesh(handleGeo, handleMat);
+  handle.position.set(0, -0.05, 0);
+  g.add(handle);
+  // Head crossbar
+  let headGeo = new THREE.BoxGeometry(0.35, 0.06, 0.05);
+  let headMat = new THREE.MeshLambertMaterial({ color: col.head });
+  let head = new THREE.Mesh(headGeo, headMat);
+  head.position.set(0, 0.24, 0);
+  g.add(head);
+  // Left pick point
+  let pickGeo = new THREE.BoxGeometry(0.06, 0.06, 0.05);
+  let pickMat = new THREE.MeshLambertMaterial({ color: col.dark });
+  let pickL = new THREE.Mesh(pickGeo, pickMat);
+  pickL.position.set(-0.2, 0.2, 0);
+  g.add(pickL);
+  // Right pick point
+  let pickR = new THREE.Mesh(pickGeo, pickMat);
+  pickR.position.set(0.2, 0.2, 0);
+  g.add(pickR);
+  // Top edge
+  let topGeo = new THREE.BoxGeometry(0.3, 0.03, 0.05);
+  let topMat = new THREE.MeshLambertMaterial({ color: col.dark });
+  let top = new THREE.Mesh(topGeo, topMat);
+  top.position.set(0, 0.28, 0);
+  g.add(top);
+  return g;
+}
+
+function buildAxe3D(item) {
+  let g = new THREE.Group();
+  let col = getToolColor(item);
+  // Handle
+  let handleGeo = new THREE.BoxGeometry(0.04, 0.55, 0.04);
+  let handleMat = new THREE.MeshLambertMaterial({ color: 0x654321 });
+  let handle = new THREE.Mesh(handleGeo, handleMat);
+  handle.position.set(0, -0.05, 0);
+  g.add(handle);
+  // Axe head
+  let headGeo = new THREE.BoxGeometry(0.2, 0.18, 0.04);
+  let headMat = new THREE.MeshLambertMaterial({ color: col.head });
+  let head = new THREE.Mesh(headGeo, headMat);
+  head.position.set(0.12, 0.22, 0);
+  g.add(head);
+  // Axe edge
+  let edgeGeo = new THREE.BoxGeometry(0.04, 0.22, 0.05);
+  let edgeMat = new THREE.MeshLambertMaterial({ color: col.dark });
+  let edge = new THREE.Mesh(edgeGeo, edgeMat);
+  edge.position.set(0.24, 0.22, 0);
+  g.add(edge);
+  return g;
+}
+
+function buildShovel3D(item) {
+  let g = new THREE.Group();
+  let col = getToolColor(item);
+  // Handle
+  let handleGeo = new THREE.BoxGeometry(0.04, 0.5, 0.04);
+  let handleMat = new THREE.MeshLambertMaterial({ color: 0x654321 });
+  let handle = new THREE.Mesh(handleGeo, handleMat);
+  handle.position.set(0, -0.05, 0);
+  g.add(handle);
+  // Shovel head
+  let headGeo = new THREE.BoxGeometry(0.12, 0.16, 0.03);
+  let headMat = new THREE.MeshLambertMaterial({ color: col.head });
+  let head = new THREE.Mesh(headGeo, headMat);
+  head.position.set(0, 0.28, 0);
+  g.add(head);
+  let tipGeo = new THREE.BoxGeometry(0.08, 0.05, 0.03);
+  let tip = new THREE.Mesh(tipGeo, new THREE.MeshLambertMaterial({ color: col.dark }));
+  tip.position.set(0, 0.38, 0);
+  g.add(tip);
+  return g;
+}
+
 function updateHeldItemMesh() {
   let held = inventory[selectedSlot];
   let hId = held ? held.id : null;
@@ -2182,30 +2310,30 @@ function updateHeldItemMesh() {
     tex.minFilter = THREE.NearestFilter;
 
     if (item.type === 'sword') {
-      // Angled flat blade like MC
-      let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide });
-      let geo = new THREE.PlaneGeometry(0.4, 0.7);
-      heldItemMesh = new THREE.Mesh(geo, mat);
-      heldItemMesh.position.set(0.45, -0.2, -0.5);
-      heldItemMesh.rotation.set(-0.5, 0.4, -0.8);
-    } else if (item.type === 'pickaxe' || item.type === 'axe' || item.type === 'shovel') {
-      // Tool shape - flat but angled like held diagonally
-      let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide });
-      let geo = new THREE.PlaneGeometry(0.5, 0.6);
-      heldItemMesh = new THREE.Mesh(geo, mat);
-      heldItemMesh.position.set(0.45, -0.25, -0.5);
-      heldItemMesh.rotation.set(-0.4, 0.5, -0.7);
+      heldItemMesh = buildSword3D(item);
+      heldItemMesh.position.set(0.4, -0.25, -0.45);
+      heldItemMesh.rotation.set(-0.3, 0.2, -0.7);
+    } else if (item.type === 'pickaxe') {
+      heldItemMesh = buildPickaxe3D(item);
+      heldItemMesh.position.set(0.4, -0.2, -0.45);
+      heldItemMesh.rotation.set(-0.3, 0.3, -0.6);
+    } else if (item.type === 'axe') {
+      heldItemMesh = buildAxe3D(item);
+      heldItemMesh.position.set(0.4, -0.2, -0.45);
+      heldItemMesh.rotation.set(-0.3, 0.3, -0.6);
+    } else if (item.type === 'shovel') {
+      heldItemMesh = buildShovel3D(item);
+      heldItemMesh.position.set(0.4, -0.2, -0.45);
+      heldItemMesh.rotation.set(-0.3, 0.3, -0.6);
     } else if (item.food) {
-      // Food items as small 3D cubes with texture
       let mat = new THREE.MeshLambertMaterial({ map: tex });
-      let geo = new THREE.BoxGeometry(0.25, 0.25, 0.25);
+      let geo = new THREE.BoxGeometry(0.22, 0.22, 0.22);
       heldItemMesh = new THREE.Mesh(geo, mat);
       heldItemMesh.position.set(0.45, -0.35, -0.5);
       heldItemMesh.rotation.set(0.3, 0.6, 0.2);
     } else {
-      // Default flat sprite
       let mat = new THREE.MeshLambertMaterial({ map: tex, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide });
-      let geo = new THREE.PlaneGeometry(0.45, 0.45);
+      let geo = new THREE.PlaneGeometry(0.4, 0.4);
       heldItemMesh = new THREE.Mesh(geo, mat);
       heldItemMesh.position.set(0.5, -0.3, -0.55);
       heldItemMesh.rotation.set(-0.3, 0.6, 0.4);
@@ -2364,10 +2492,26 @@ async function init3D() {
   camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 300);
   scene.add(camera);
 
-  renderer = new THREE.WebGLRenderer({ antialias: false });
+  let canvas = document.createElement('canvas');
+  let gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   document.body.appendChild(renderer.domElement);
+
+  renderer.domElement.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    console.log('WebGL context lost — pausing render');
+  });
+  renderer.domElement.addEventListener('webglcontextrestored', () => {
+    console.log('WebGL context restored — rebuilding');
+    buildTextureAtlas();
+    for (let key in chunks) { chunks[key].mesh = null; }
+    let cx = Math.floor(playerPos.x / CHUNK_SIZE), cz = Math.floor(playerPos.z / CHUNK_SIZE);
+    for (let dx = -RENDER_DIST; dx <= RENDER_DIST; dx++)
+      for (let dz = -RENDER_DIST; dz <= RENDER_DIST; dz++)
+        buildChunkMesh(cx + dx, cz + dz);
+  });
 
   sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
   sunLight.position.set(50, 80, 30);
@@ -2466,10 +2610,11 @@ function updateChunks() {
 
 function gameLoop() {
   requestAnimationFrame(gameLoop);
+  if (renderer.getContext().isContextLost()) return;
   let dt = Math.min(clock.getDelta(), 0.05);
 
   if (!gameStarted || paused) {
-    renderer.render(scene, camera);
+    try { renderer.render(scene, camera); } catch(e) {}
     return;
   }
 
@@ -2497,7 +2642,7 @@ function gameLoop() {
   camera.rotation.y = yaw;
   camera.rotation.x = pitch;
 
-  renderer.render(scene, camera);
+  try { renderer.render(scene, camera); } catch(e) {}
 }
 
 // ============================================================
@@ -2585,7 +2730,9 @@ function setupInput() {
 }
 
 function requestPointerLock() {
-  renderer?.domElement?.requestPointerLock?.();
+  setTimeout(() => {
+    renderer?.domElement?.requestPointerLock?.().catch?.(() => {});
+  }, 100);
 }
 
 function pauseGame() {
