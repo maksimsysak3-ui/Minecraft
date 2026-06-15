@@ -1,11 +1,2408 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>My Page</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minecraft</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif;cursor:default;user-select:none;}
+canvas{display:block;}
+
+/* Intro Screen */
+#intro-screen{position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:1000;display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity 1s;}
+#intro-screen .studio-text{color:#fff;font-size:2.5em;opacity:0;transition:opacity 1.5s;font-weight:300;letter-spacing:8px;text-transform:uppercase;}
+#intro-screen .studio-sub{color:#aaa;font-size:1.1em;opacity:0;transition:opacity 1.5s;letter-spacing:4px;margin-top:10px;}
+#intro-screen .presents{color:#888;font-size:1em;opacity:0;transition:opacity 1.5s;letter-spacing:6px;margin-top:20px;}
+
+/* Main Menu */
+#main-menu{position:fixed;top:0;left:0;width:100%;height:100%;z-index:900;display:none;flex-direction:column;align-items:center;justify-content:center;}
+#main-menu .menu-bg{position:absolute;top:0;left:0;width:100%;height:100%;}
+#menu-canvas{position:absolute;top:0;left:0;width:100%;height:100%;}
+#main-menu .menu-overlay{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;}
+#main-menu .title{font-size:4em;color:#fff;text-shadow:3px 3px 0 #3f3f3f,4px 4px 0 #000;font-weight:bold;letter-spacing:4px;margin-bottom:10px;font-family:'Courier New',monospace;}
+#main-menu .subtitle{color:#ff0;font-size:0.9em;margin-bottom:40px;font-style:italic;}
+.menu-btn{background:linear-gradient(to bottom,#7a7a7a,#555);border:2px solid #000;outline:3px solid #555;color:#fff;padding:10px 80px;font-size:1.1em;margin:5px;cursor:pointer;font-family:'Segoe UI',sans-serif;text-shadow:1px 1px 2px #000;width:300px;text-align:center;}
+.menu-btn:hover{background:linear-gradient(to bottom,#8a8aff,#5555cc);outline-color:#8a8aff;}
+.menu-btn:active{background:#444;}
+#main-menu .version{position:absolute;bottom:10px;left:10px;color:#aaa;font-size:0.7em;z-index:2;}
+#main-menu .copy{position:absolute;bottom:10px;right:10px;color:#aaa;font-size:0.7em;z-index:2;}
+
+/* Loading Screen */
+#loading-screen{position:fixed;top:0;left:0;width:100%;height:100%;background:#d03030;z-index:800;display:none;flex-direction:column;align-items:center;justify-content:center;color:#fff;}
+#loading-screen .load-title{font-size:1.5em;margin-bottom:20px;}
+#loading-bar-outer{width:400px;height:20px;background:#600;border:2px solid #400;}
+#loading-bar-inner{height:100%;width:0%;background:#0f0;transition:width 0.3s;}
+#loading-text{margin-top:10px;font-size:0.85em;color:#faa;}
+
+/* HUD */
+#hud{position:fixed;bottom:0;left:0;width:100%;z-index:100;display:none;flex-direction:column;align-items:center;pointer-events:none;}
+#hotbar{display:flex;gap:2px;margin-bottom:10px;pointer-events:auto;}
+.hotbar-slot{width:50px;height:50px;background:rgba(0,0,0,0.7);border:2px solid #222;position:relative;display:flex;align-items:center;justify-content:center;}
+.hotbar-slot.selected{border:3px solid #fff;background:rgba(100,100,100,0.8);}
+.hotbar-slot canvas{width:36px;height:36px;image-rendering:pixelated;}
+.slot-count{position:absolute;bottom:1px;right:3px;color:#fff;font-size:11px;text-shadow:1px 1px #000;font-weight:bold;}
+.slot-key{position:absolute;top:1px;left:3px;color:#aaa;font-size:9px;}
+
+#crosshair{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:100;display:none;pointer-events:none;}
+#crosshair::before,#crosshair::after{content:'';position:absolute;background:rgba(255,255,255,0.8);}
+#crosshair::before{width:2px;height:20px;left:50%;top:50%;transform:translate(-50%,-50%);}
+#crosshair::after{width:20px;height:2px;left:50%;top:50%;transform:translate(-50%,-50%);}
+
+/* Health/Food bars */
+#bars{position:fixed;bottom:62px;width:100%;display:none;z-index:100;pointer-events:none;}
+#bars-inner{width:364px;margin:0 auto;display:flex;justify-content:space-between;}
+#health-bar,#food-bar{display:flex;gap:0px;}
+.heart,.food{width:9px;height:9px;margin:0 1px;image-rendering:pixelated;}
+
+/* XP bar */
+#xp-bar-outer{width:364px;height:5px;margin:0 auto 2px;background:#222;display:none;z-index:100;position:fixed;bottom:57px;left:50%;transform:translateX(-50%);}
+#xp-bar-inner{height:100%;width:30%;background:#7dff2a;}
+
+/* Debug info */
+#debug{position:fixed;top:5px;left:5px;color:#fff;font-size:11px;z-index:100;display:none;text-shadow:1px 1px #000;line-height:1.5;}
+
+/* Inventory */
+#inventory-screen{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:200;display:none;align-items:center;justify-content:center;}
+#inventory-panel{background:#c6c6c6;border:4px solid #000;padding:8px;width:420px;}
+#inv-title{text-align:center;font-size:14px;margin-bottom:6px;color:#404040;}
+#inv-crafting{display:flex;align-items:center;gap:10px;margin-bottom:10px;justify-content:center;}
+#craft-grid{display:grid;grid-template-columns:repeat(2,40px);gap:2px;}
+#craft-result{width:40px;height:40px;}
+#craft-arrow{font-size:24px;color:#404040;}
+.inv-slot{width:40px;height:40px;background:#8b8b8b;border:2px solid;border-color:#fff #555 #555 #fff;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;}
+.inv-slot:hover{background:#aaa;}
+.inv-slot canvas{width:30px;height:30px;image-rendering:pixelated;}
+.inv-slot .slot-count{font-size:10px;}
+#inv-main{display:grid;grid-template-columns:repeat(9,40px);gap:2px;margin-top:6px;}
+#inv-hotbar-mirror{display:grid;grid-template-columns:repeat(9,40px);gap:2px;margin-top:8px;padding-top:6px;border-top:2px solid #888;}
+#armor-slots{display:flex;gap:2px;margin-bottom:6px;justify-content:center;}
+
+/* Crafting Table */
+#crafting-screen{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:200;display:none;align-items:center;justify-content:center;}
+#crafting-panel{background:#c6c6c6;border:4px solid #000;padding:8px;width:450px;}
+#ct-title{text-align:center;font-size:14px;margin-bottom:6px;color:#404040;}
+#ct-crafting{display:flex;align-items:center;gap:10px;margin-bottom:10px;justify-content:center;}
+#ct-grid{display:grid;grid-template-columns:repeat(3,40px);gap:2px;}
+#ct-result{width:40px;height:40px;}
+#ct-arrow{font-size:24px;color:#404040;}
+#ct-inv{display:grid;grid-template-columns:repeat(9,40px);gap:2px;margin-top:6px;}
+#ct-hotbar{display:grid;grid-template-columns:repeat(9,40px);gap:2px;margin-top:8px;padding-top:6px;border-top:2px solid #888;}
+
+/* Pause menu */
+#pause-menu{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:300;display:none;align-items:center;justify-content:center;flex-direction:column;}
+#pause-menu h2{color:#fff;font-size:1.5em;margin-bottom:20px;}
+
+/* Block break overlay */
+#break-overlay{position:fixed;top:0;left:0;width:100%;height:100%;z-index:50;display:none;pointer-events:none;}
+
+/* Tooltip */
+#tooltip{position:fixed;background:rgba(20,0,30,0.9);color:#fff;padding:4px 8px;font-size:12px;border:1px solid #5020a0;z-index:500;display:none;pointer-events:none;white-space:nowrap;}
+
+/* Punch animation */
+#punch-anim{position:fixed;bottom:0;right:calc(50% - 120px);z-index:90;display:none;pointer-events:none;}
+#punch-canvas{width:240px;height:240px;image-rendering:pixelated;}
+
+/* Held item display */
+.held-item{position:fixed;bottom:20px;right:calc(50% - 140px);width:80px;height:80px;z-index:89;display:none;pointer-events:none;image-rendering:pixelated;transform:rotate(-15deg);transform-origin:bottom right;}
+</style>
 </head>
 <body>
-  <h1>Hello, World!</h1>
-  <p>This is a basic HTML file.</p>
+
+<!-- Intro -->
+<div id="intro-screen">
+  <div class="studio-text" id="studio1">BLOCK STUDIOS</div>
+  <div class="studio-sub" id="studio2">IN ASSOCIATION WITH VOXEL ENTERTAINMENT</div>
+  <div class="presents" id="studio3">— PRESENTS —</div>
+</div>
+
+<!-- Main Menu -->
+<div id="main-menu">
+  <canvas id="menu-canvas"></canvas>
+  <div class="menu-overlay">
+    <div class="title">MINECRAFT</div>
+    <div class="subtitle" id="splash-text">Also try Terraria!</div>
+    <button class="menu-btn" id="btn-survival" onclick="startGame('survival')">Singleplayer</button>
+    <button class="menu-btn" disabled style="opacity:0.5">Multiplayer</button>
+    <button class="menu-btn" disabled style="opacity:0.5">Options...</button>
+    <button class="menu-btn" disabled style="opacity:0.5">Quit Game</button>
+  </div>
+  <div class="version">Minecraft Clone v1.0</div>
+  <div class="copy">Not affiliated with Mojang</div>
+</div>
+
+<!-- Loading -->
+<div id="loading-screen">
+  <div class="load-title">Generating World...</div>
+  <div id="loading-bar-outer"><div id="loading-bar-inner"></div></div>
+  <div id="loading-text">Building terrain...</div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="hotbar"></div>
+</div>
+<div id="bars"><div id="bars-inner"><div id="health-bar"></div><div id="food-bar"></div></div></div>
+<div id="xp-bar-outer"><div id="xp-bar-inner"></div></div>
+<div id="crosshair"></div>
+<div id="debug"></div>
+<div id="tooltip"></div>
+
+<!-- Inventory -->
+<div id="inventory-screen">
+  <div id="inventory-panel">
+    <div id="inv-title">Inventory</div>
+    <div id="inv-crafting">
+      <div id="craft-grid"></div>
+      <div id="craft-arrow">➡</div>
+      <div id="craft-result" class="inv-slot"></div>
+    </div>
+    <div id="inv-main"></div>
+    <div id="inv-hotbar-mirror"></div>
+  </div>
+</div>
+
+<!-- Crafting Table -->
+<div id="crafting-screen">
+  <div id="crafting-panel">
+    <div id="ct-title">Crafting</div>
+    <div id="ct-crafting">
+      <div id="ct-grid"></div>
+      <div id="ct-arrow">➡</div>
+      <div id="ct-result" class="inv-slot"></div>
+    </div>
+    <div id="ct-inv"></div>
+    <div id="ct-hotbar"></div>
+  </div>
+</div>
+
+<!-- Pause -->
+<div id="pause-menu">
+  <h2>Game Paused</h2>
+  <button class="menu-btn" onclick="resumeGame()">Back to Game</button>
+  <button class="menu-btn" onclick="location.reload()">Quit to Title</button>
+</div>
+
+<!-- Punch hand -->
+<div id="punch-anim"><canvas id="punch-canvas" width="120" height="120"></canvas></div>
+
+<script>
+// ============================================================
+// TEXTURE GENERATOR - Creates pixel art textures for all blocks
+// ============================================================
+const TEX_SIZE = 16;
+const textures = {};
+const textureCanvases = {};
+
+function createTexture(name, drawFn) {
+  const c = document.createElement('canvas');
+  c.width = c.height = TEX_SIZE;
+  const ctx = c.getContext('2d');
+  drawFn(ctx, TEX_SIZE);
+  textureCanvases[name] = c;
+  return c;
+}
+
+function px(ctx, x, y, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, 1, 1);
+}
+
+function fillRect(ctx, x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+}
+
+function noise(x, y, seed) {
+  let n = Math.sin(x * 12.9898 + y * 78.233 + seed) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+// GRASS BLOCK TOP
+createTexture('grass_top', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let g = 100 + noise(x, y, 1) * 60;
+    let r = 30 + noise(x, y, 2) * 20;
+    px(ctx, x, y, `rgb(${r|0},${g|0},${30})`);
+  }
+});
+
+// GRASS BLOCK SIDE
+createTexture('grass_side', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    if (y < 3) {
+      let g = 100 + noise(x, y, 1) * 60;
+      px(ctx, x, y, `rgb(${30},${g|0},${20})`);
+    } else {
+      let b = 130 + noise(x, y, 3) * 40;
+      px(ctx, x, y, `rgb(${b|0},${(b*0.7)|0},${(b*0.5)|0})`);
+    }
+  }
+});
+
+// DIRT
+createTexture('dirt', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let b = 130 + noise(x, y, 3) * 50;
+    px(ctx, x, y, `rgb(${b|0},${(b*0.7)|0},${(b*0.45)|0})`);
+  }
+});
+
+// STONE
+createTexture('stone', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = 120 + noise(x, y, 5) * 40;
+    px(ctx, x, y, `rgb(${v|0},${v|0},${v|0})`);
+  }
+  fillRect(ctx, 3, 4, 5, 3, '#666');
+  fillRect(ctx, 9, 10, 4, 3, '#777');
+});
+
+// COBBLESTONE
+createTexture('cobblestone', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#888');
+  for (let i = 0; i < 12; i++) {
+    let rx = (noise(i, 0, 9) * 14) | 0;
+    let ry = (noise(0, i, 9) * 14) | 0;
+    let rw = 2 + (noise(i, i, 9) * 4) | 0;
+    let rh = 2 + (noise(i, i + 1, 9) * 4) | 0;
+    let v = 100 + (noise(i, i, 10) * 60) | 0;
+    fillRect(ctx, rx, ry, rw, rh, `rgb(${v},${v},${v})`);
+  }
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    if (noise(x, y, 11) > 0.7) px(ctx, x, y, '#666');
+  }
+});
+
+// WOOD LOG TOP
+createTexture('log_top', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#8B6914');
+  for (let r = 6; r > 0; r -= 2) {
+    let v = 160 + r * 10;
+    ctx.strokeStyle = `rgb(${v},${(v*0.7)|0},${(v*0.4)|0})`;
+    ctx.beginPath();
+    ctx.arc(8, 8, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  px(ctx, 8, 8, '#5a3a0a');
+});
+
+// WOOD LOG SIDE
+createTexture('log_side', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = 100 + noise(x, y * 0.3, 6) * 40;
+    px(ctx, x, y, `rgb(${(v*0.7)|0},${(v*0.5)|0},${(v*0.25)|0})`);
+  }
+  for (let y = 0; y < s; y += 3) {
+    fillRect(ctx, 0, y, s, 1, 'rgba(0,0,0,0.1)');
+  }
+});
+
+// PLANKS
+createTexture('planks', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = 180 + noise(x, y, 7) * 30;
+    px(ctx, x, y, `rgb(${v|0},${(v*0.75)|0},${(v*0.45)|0})`);
+  }
+  for (let y of [0, 4, 8, 12]) fillRect(ctx, 0, y, s, 1, 'rgba(0,0,0,0.15)');
+  fillRect(ctx, 4, 0, 1, 8, 'rgba(0,0,0,0.1)');
+  fillRect(ctx, 12, 0, 1, 8, 'rgba(0,0,0,0.1)');
+  fillRect(ctx, 8, 8, 1, 8, 'rgba(0,0,0,0.1)');
+});
+
+// LEAVES
+createTexture('leaves', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    if (noise(x, y, 8) > 0.25) {
+      let g = 80 + noise(x, y, 9) * 80;
+      px(ctx, x, y, `rgba(${20},${g|0},${15},0.95)`);
+    }
+  }
+});
+
+// SAND
+createTexture('sand', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = 210 + noise(x, y, 10) * 35;
+    px(ctx, x, y, `rgb(${v|0},${(v*0.9)|0},${(v*0.6)|0})`);
+  }
+});
+
+// WATER
+createTexture('water', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let b = 150 + noise(x, y, 11) * 60;
+    px(ctx, x, y, `rgba(30,60,${b|0},0.7)`);
+  }
+});
+
+// COAL ORE
+createTexture('coal_ore', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = 120 + noise(x, y, 5) * 40;
+    px(ctx, x, y, `rgb(${v|0},${v|0},${v|0})`);
+  }
+  for (let sp of [[3,3],[5,4],[4,5],[10,9],[11,10],[12,9],[7,12],[8,13]]) {
+    fillRect(ctx, sp[0], sp[1], 2, 2, '#222');
+  }
+});
+
+// IRON ORE
+createTexture('iron_ore', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = 120 + noise(x, y, 5) * 40;
+    px(ctx, x, y, `rgb(${v|0},${v|0},${v|0})`);
+  }
+  for (let sp of [[3,3],[5,4],[4,5],[10,9],[11,10],[12,9]]) {
+    fillRect(ctx, sp[0], sp[1], 2, 2, '#d4a574');
+  }
+});
+
+// GOLD ORE
+createTexture('gold_ore', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = 120 + noise(x, y, 5) * 40;
+    px(ctx, x, y, `rgb(${v|0},${v|0},${v|0})`);
+  }
+  for (let sp of [[3,4],[5,5],[4,6],[10,10],[11,11]]) {
+    fillRect(ctx, sp[0], sp[1], 2, 2, '#fcdb05');
+  }
+});
+
+// DIAMOND ORE
+createTexture('diamond_ore', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = 120 + noise(x, y, 5) * 40;
+    px(ctx, x, y, `rgb(${v|0},${v|0},${v|0})`);
+  }
+  for (let sp of [[4,4],[5,5],[10,10],[11,11]]) {
+    fillRect(ctx, sp[0], sp[1], 2, 2, '#5cf2f2');
+  }
+});
+
+// BEDROCK
+createTexture('bedrock', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = 40 + noise(x, y, 12) * 50;
+    px(ctx, x, y, `rgb(${v|0},${v|0},${v|0})`);
+  }
+});
+
+// GLASS
+createTexture('glass', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, 'rgba(200,220,255,0.3)');
+  fillRect(ctx, 0, 0, s, 1, '#aac');
+  fillRect(ctx, 0, 0, 1, s, '#aac');
+  fillRect(ctx, s-1, 0, 1, s, '#aac');
+  fillRect(ctx, 0, s-1, s, 1, '#aac');
+  px(ctx, 2, 2, 'rgba(255,255,255,0.5)');
+  px(ctx, 3, 2, 'rgba(255,255,255,0.5)');
+  px(ctx, 2, 3, 'rgba(255,255,255,0.3)');
+});
+
+// BRICK
+createTexture('brick', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#9b6b4a');
+  for (let y = 0; y < s; y += 4) {
+    fillRect(ctx, 0, y, s, 1, '#7a7a7a');
+    let off = (y % 8 === 0) ? 0 : 6;
+    fillRect(ctx, off, y, 1, 4, '#7a7a7a');
+    fillRect(ctx, off + 8, y, 1, 4, '#7a7a7a');
+  }
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    if (noise(x, y, 13) > 0.8) px(ctx, x, y, `rgba(0,0,0,0.15)`);
+  }
+});
+
+// CRAFTING TABLE TOP
+createTexture('crafting_top', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = 160 + noise(x, y, 14) * 30;
+    px(ctx, x, y, `rgb(${v|0},${(v*0.7)|0},${(v*0.4)|0})`);
+  }
+  fillRect(ctx, 0, 0, 8, 8, 'rgba(0,0,0,0.05)');
+  fillRect(ctx, 8, 8, 8, 8, 'rgba(0,0,0,0.05)');
+  fillRect(ctx, 0, 0, s, 1, '#654');
+  fillRect(ctx, 0, 0, 1, s, '#654');
+  fillRect(ctx, s-1, 0, 1, s, '#654');
+  fillRect(ctx, 0, s-1, s, 1, '#654');
+  fillRect(ctx, 7, 0, 2, s, '#654');
+  fillRect(ctx, 0, 7, s, 2, '#654');
+});
+
+// CRAFTING TABLE SIDE
+createTexture('crafting_side', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = 160 + noise(x, y, 14) * 30;
+    px(ctx, x, y, `rgb(${v|0},${(v*0.7)|0},${(v*0.4)|0})`);
+  }
+  fillRect(ctx, 2, 2, 5, 5, '#876');
+  fillRect(ctx, 9, 2, 5, 5, '#876');
+  fillRect(ctx, 3, 3, 3, 3, '#654');
+  fillRect(ctx, 10, 3, 3, 3, '#654');
+  for (let y = 8; y < s; y += 4) fillRect(ctx, 0, y, s, 1, 'rgba(0,0,0,0.1)');
+});
+
+// TNT
+createTexture('tnt_side', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#cc2200');
+  fillRect(ctx, 0, 0, s, 3, '#8B6914');
+  fillRect(ctx, 0, 13, s, 3, '#8B6914');
+  fillRect(ctx, 5, 4, 6, 8, '#ddd');
+  // TNT text
+  fillRect(ctx, 6, 6, 1, 4, '#c00');
+  fillRect(ctx, 7, 5, 1, 1, '#c00');
+  fillRect(ctx, 8, 5, 1, 5, '#c00');
+  fillRect(ctx, 9, 5, 1, 1, '#c00');
+  fillRect(ctx, 10, 6, 1, 4, '#c00');
+});
+
+createTexture('tnt_top', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#8B6914');
+  ctx.strokeStyle = '#5a3a0a';
+  ctx.beginPath(); ctx.arc(8, 8, 5, 0, Math.PI * 2); ctx.stroke();
+  fillRect(ctx, 7, 2, 2, 4, '#333');
+});
+
+// SNOW
+createTexture('snow', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = 230 + noise(x, y, 15) * 25;
+    px(ctx, x, y, `rgb(${v|0},${v|0},${(v*1.02)|0})`);
+  }
+});
+
+// GRAVEL
+createTexture('gravel', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = 120 + noise(x, y, 16) * 60;
+    let tint = noise(x + 50, y, 16) > 0.6 ? 20 : 0;
+    px(ctx, x, y, `rgb(${(v + tint)|0},${(v + tint * 0.5)|0},${(v)|0})`);
+  }
+});
+
+// BOOKSHELF
+createTexture('bookshelf', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#8B6914');
+  fillRect(ctx, 1, 1, 14, 6, '#443');
+  fillRect(ctx, 1, 9, 14, 6, '#443');
+  let colors = ['#833','#338','#383','#853','#358','#835'];
+  for (let row = 0; row < 2; row++) {
+    let y = row === 0 ? 1 : 9;
+    let x = 1;
+    for (let i = 0; i < 5; i++) {
+      let w = 2 + ((noise(i, row, 17) * 2) | 0);
+      fillRect(ctx, x, y, w, 6, colors[(i + row * 3) % colors.length]);
+      x += w + 1;
+      if (x > 13) break;
+    }
+  }
+});
+
+// FURNACE
+createTexture('furnace_front', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = 120 + noise(x, y, 5) * 40;
+    px(ctx, x, y, `rgb(${v|0},${v|0},${v|0})`);
+  }
+  fillRect(ctx, 4, 4, 8, 8, '#333');
+  fillRect(ctx, 5, 5, 6, 3, '#555');
+  fillRect(ctx, 5, 9, 6, 2, '#822');
+  fillRect(ctx, 6, 10, 1, 1, '#fa0');
+  fillRect(ctx, 9, 10, 1, 1, '#fa0');
+});
+
+createTexture('furnace_side', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = 118 + noise(x, y, 5) * 40;
+    px(ctx, x, y, `rgb(${v|0},${v|0},${v|0})`);
+  }
+});
+
+// WOOL
+createTexture('wool', (ctx, s) => {
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = 225 + noise(x, y, 18) * 30;
+    px(ctx, x, y, `rgb(${v|0},${v|0},${v|0})`);
+  }
+});
+
+// FLOWER (item-like)
+createTexture('flower_red', (ctx, s) => {
+  fillRect(ctx, 7, 6, 2, 8, '#3a3');
+  fillRect(ctx, 5, 3, 2, 2, '#e22');
+  fillRect(ctx, 7, 2, 2, 2, '#e22');
+  fillRect(ctx, 9, 3, 2, 2, '#e22');
+  fillRect(ctx, 7, 3, 2, 2, '#ff0');
+});
+
+// PUMPKIN
+createTexture('pumpkin_front', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#d8860b');
+  for (let x of [0, 5, 10, 15]) fillRect(ctx, x, 0, 1, s, '#b06a08');
+  fillRect(ctx, 4, 3, 3, 3, '#222');
+  fillRect(ctx, 9, 3, 3, 3, '#222');
+  fillRect(ctx, 5, 9, 6, 2, '#222');
+  fillRect(ctx, 6, 0, 4, 2, '#3a7a2a');
+});
+
+createTexture('pumpkin_side', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#d8860b');
+  for (let x of [0, 4, 8, 12, 15]) fillRect(ctx, x, 0, 1, s, '#b06a08');
+  fillRect(ctx, 6, 0, 4, 2, '#3a7a2a');
+});
+
+// CHEST (simplified)
+createTexture('chest_front', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#8B6914');
+  fillRect(ctx, 1, 1, 14, 14, '#a87e2a');
+  fillRect(ctx, 0, 7, s, 1, '#6a5010');
+  fillRect(ctx, 6, 5, 4, 5, '#444');
+  fillRect(ctx, 7, 6, 2, 3, '#666');
+});
+
+createTexture('chest_side', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#8B6914');
+  fillRect(ctx, 1, 1, 14, 14, '#a87e2a');
+  fillRect(ctx, 0, 7, s, 1, '#6a5010');
+});
+
+// ============================================================
+// ITEM TEXTURES
+// ============================================================
+createTexture('wooden_sword', (ctx) => {
+  fillRect(ctx, 7, 1, 2, 9, '#c8a84e');
+  fillRect(ctx, 6, 10, 4, 1, '#8B6914');
+  fillRect(ctx, 7, 11, 2, 4, '#654');
+});
+
+createTexture('stone_sword', (ctx) => {
+  fillRect(ctx, 7, 1, 2, 9, '#999');
+  fillRect(ctx, 6, 10, 4, 1, '#8B6914');
+  fillRect(ctx, 7, 11, 2, 4, '#654');
+});
+
+createTexture('iron_sword', (ctx) => {
+  fillRect(ctx, 7, 1, 2, 9, '#ddd');
+  fillRect(ctx, 6, 10, 4, 1, '#8B6914');
+  fillRect(ctx, 7, 11, 2, 4, '#654');
+});
+
+createTexture('diamond_sword', (ctx) => {
+  fillRect(ctx, 7, 1, 2, 9, '#5cf2f2');
+  fillRect(ctx, 6, 10, 4, 1, '#8B6914');
+  fillRect(ctx, 7, 11, 2, 4, '#654');
+});
+
+createTexture('wooden_pickaxe', (ctx) => {
+  fillRect(ctx, 3, 1, 10, 2, '#c8a84e');
+  fillRect(ctx, 3, 3, 2, 2, '#c8a84e');
+  fillRect(ctx, 11, 3, 2, 2, '#c8a84e');
+  fillRect(ctx, 7, 3, 2, 11, '#654');
+});
+
+createTexture('stone_pickaxe', (ctx) => {
+  fillRect(ctx, 3, 1, 10, 2, '#999');
+  fillRect(ctx, 3, 3, 2, 2, '#999');
+  fillRect(ctx, 11, 3, 2, 2, '#999');
+  fillRect(ctx, 7, 3, 2, 11, '#654');
+});
+
+createTexture('iron_pickaxe', (ctx) => {
+  fillRect(ctx, 3, 1, 10, 2, '#ddd');
+  fillRect(ctx, 3, 3, 2, 2, '#ddd');
+  fillRect(ctx, 11, 3, 2, 2, '#ddd');
+  fillRect(ctx, 7, 3, 2, 11, '#654');
+});
+
+createTexture('diamond_pickaxe', (ctx) => {
+  fillRect(ctx, 3, 1, 10, 2, '#5cf2f2');
+  fillRect(ctx, 3, 3, 2, 2, '#5cf2f2');
+  fillRect(ctx, 11, 3, 2, 2, '#5cf2f2');
+  fillRect(ctx, 7, 3, 2, 11, '#654');
+});
+
+createTexture('wooden_axe', (ctx) => {
+  fillRect(ctx, 4, 1, 5, 2, '#c8a84e');
+  fillRect(ctx, 3, 3, 3, 4, '#c8a84e');
+  fillRect(ctx, 7, 3, 2, 11, '#654');
+});
+
+createTexture('wooden_shovel', (ctx) => {
+  fillRect(ctx, 6, 1, 4, 5, '#c8a84e');
+  fillRect(ctx, 7, 6, 2, 9, '#654');
+});
+
+createTexture('stick', (ctx) => {
+  fillRect(ctx, 7, 2, 2, 12, '#8B6914');
+});
+
+createTexture('coal', (ctx) => {
+  fillRect(ctx, 4, 3, 8, 10, '#222');
+  fillRect(ctx, 5, 2, 6, 1, '#333');
+  fillRect(ctx, 6, 5, 2, 2, '#444');
+});
+
+createTexture('iron_ingot', (ctx) => {
+  fillRect(ctx, 3, 5, 10, 7, '#ddd');
+  fillRect(ctx, 5, 3, 6, 2, '#ccc');
+  fillRect(ctx, 4, 6, 3, 2, '#eee');
+});
+
+createTexture('gold_ingot', (ctx) => {
+  fillRect(ctx, 3, 5, 10, 7, '#fc5');
+  fillRect(ctx, 5, 3, 6, 2, '#da3');
+  fillRect(ctx, 4, 6, 3, 2, '#fe6');
+});
+
+createTexture('diamond', (ctx) => {
+  fillRect(ctx, 5, 3, 6, 3, '#5cf2f2');
+  fillRect(ctx, 3, 6, 10, 4, '#4ad8d8');
+  fillRect(ctx, 5, 10, 6, 2, '#3cbaba');
+  fillRect(ctx, 6, 4, 2, 2, '#8fffff');
+});
+
+createTexture('apple', (ctx) => {
+  fillRect(ctx, 5, 4, 6, 8, '#e22');
+  fillRect(ctx, 4, 5, 1, 6, '#c11');
+  fillRect(ctx, 11, 5, 1, 6, '#c11');
+  fillRect(ctx, 7, 2, 2, 3, '#3a3');
+  fillRect(ctx, 6, 5, 2, 2, '#f55');
+});
+
+createTexture('bread', (ctx) => {
+  fillRect(ctx, 2, 6, 12, 6, '#c8a84e');
+  fillRect(ctx, 3, 5, 10, 1, '#dab060');
+  fillRect(ctx, 3, 7, 10, 1, '#b89840');
+});
+
+createTexture('cooked_pork', (ctx) => {
+  fillRect(ctx, 2, 4, 12, 8, '#c88060');
+  fillRect(ctx, 3, 5, 4, 3, '#e8a080');
+  fillRect(ctx, 9, 6, 3, 3, '#e8a080');
+  fillRect(ctx, 3, 9, 8, 2, '#a06040');
+});
+
+// ============================================================
+// BLOCK DEFINITIONS
+// ============================================================
+const BLOCKS = {
+  0: { name: 'Air', solid: false },
+  1: { name: 'Grass Block', texTop: 'grass_top', texSide: 'grass_side', texBottom: 'dirt', hardness: 0.6, tool: 'shovel', drop: 2 },
+  2: { name: 'Dirt', tex: 'dirt', hardness: 0.5, tool: 'shovel' },
+  3: { name: 'Stone', tex: 'stone', hardness: 1.5, tool: 'pickaxe', drop: 4 },
+  4: { name: 'Cobblestone', tex: 'cobblestone', hardness: 2, tool: 'pickaxe' },
+  5: { name: 'Oak Log', texTop: 'log_top', texSide: 'log_side', texBottom: 'log_top', hardness: 2, tool: 'axe' },
+  6: { name: 'Oak Planks', tex: 'planks', hardness: 2, tool: 'axe' },
+  7: { name: 'Leaves', tex: 'leaves', hardness: 0.2, transparent: true },
+  8: { name: 'Sand', tex: 'sand', hardness: 0.5, tool: 'shovel' },
+  9: { name: 'Water', tex: 'water', hardness: -1, solid: false, transparent: true, liquid: true },
+  10: { name: 'Coal Ore', tex: 'coal_ore', hardness: 3, tool: 'pickaxe', dropItem: 'coal' },
+  11: { name: 'Iron Ore', tex: 'iron_ore', hardness: 3, tool: 'pickaxe' },
+  12: { name: 'Gold Ore', tex: 'gold_ore', hardness: 3, tool: 'pickaxe' },
+  13: { name: 'Diamond Ore', tex: 'diamond_ore', hardness: 3, tool: 'pickaxe', dropItem: 'diamond' },
+  14: { name: 'Bedrock', tex: 'bedrock', hardness: -1 },
+  15: { name: 'Glass', tex: 'glass', hardness: 0.3, transparent: true },
+  16: { name: 'Brick', tex: 'brick', hardness: 2, tool: 'pickaxe' },
+  17: { name: 'Crafting Table', texTop: 'crafting_top', texSide: 'crafting_side', texBottom: 'planks', hardness: 2.5, tool: 'axe', interact: true },
+  18: { name: 'TNT', texTop: 'tnt_top', texSide: 'tnt_side', texBottom: 'tnt_top', hardness: 0 },
+  19: { name: 'Snow', tex: 'snow', hardness: 0.2, tool: 'shovel' },
+  20: { name: 'Gravel', tex: 'gravel', hardness: 0.6, tool: 'shovel' },
+  21: { name: 'Bookshelf', texTop: 'planks', texSide: 'bookshelf', texBottom: 'planks', hardness: 1.5, tool: 'axe' },
+  22: { name: 'Wool', tex: 'wool', hardness: 0.8 },
+  23: { name: 'Pumpkin', texTop: 'pumpkin_side', texSide: 'pumpkin_front', texBottom: 'pumpkin_side', hardness: 1 },
+  24: { name: 'Furnace', texTop: 'furnace_side', texFront: 'furnace_front', texSide: 'furnace_side', texBottom: 'furnace_side', hardness: 3.5, tool: 'pickaxe' },
+  25: { name: 'Chest', texTop: 'chest_side', texFront: 'chest_front', texSide: 'chest_side', texBottom: 'chest_side', hardness: 2.5, tool: 'axe' },
+};
+
+const ITEMS = {
+  'wooden_sword': { name: 'Wooden Sword', tex: 'wooden_sword', type: 'sword', damage: 4, durability: 60 },
+  'stone_sword': { name: 'Stone Sword', tex: 'stone_sword', type: 'sword', damage: 5, durability: 132 },
+  'iron_sword': { name: 'Iron Sword', tex: 'iron_sword', type: 'sword', damage: 6, durability: 251 },
+  'diamond_sword': { name: 'Diamond Sword', tex: 'diamond_sword', type: 'sword', damage: 7, durability: 1562 },
+  'wooden_pickaxe': { name: 'Wooden Pickaxe', tex: 'wooden_pickaxe', type: 'pickaxe', speed: 2, durability: 60 },
+  'stone_pickaxe': { name: 'Stone Pickaxe', tex: 'stone_pickaxe', type: 'pickaxe', speed: 4, durability: 132 },
+  'iron_pickaxe': { name: 'Iron Pickaxe', tex: 'iron_pickaxe', type: 'pickaxe', speed: 6, durability: 251 },
+  'diamond_pickaxe': { name: 'Diamond Pickaxe', tex: 'diamond_pickaxe', type: 'pickaxe', speed: 8, durability: 1562 },
+  'wooden_axe': { name: 'Wooden Axe', tex: 'wooden_axe', type: 'axe', speed: 2, durability: 60 },
+  'wooden_shovel': { name: 'Wooden Shovel', tex: 'wooden_shovel', type: 'shovel', speed: 2, durability: 60 },
+  'stick': { name: 'Stick', tex: 'stick', stackable: true },
+  'coal': { name: 'Coal', tex: 'coal', stackable: true },
+  'iron_ingot': { name: 'Iron Ingot', tex: 'iron_ingot', stackable: true },
+  'gold_ingot': { name: 'Gold Ingot', tex: 'gold_ingot', stackable: true },
+  'diamond': { name: 'Diamond', tex: 'diamond', stackable: true },
+  'apple': { name: 'Apple', tex: 'apple', stackable: true, food: 4 },
+  'bread': { name: 'Bread', tex: 'bread', stackable: true, food: 5 },
+  'cooked_pork': { name: 'Cooked Porkchop', tex: 'cooked_pork', stackable: true, food: 8 },
+};
+
+// ============================================================
+// CRAFTING RECIPES
+// ============================================================
+const RECIPES_2x2 = [
+  { grid: [[6,0],[0,0]], result: { item: 'stick', count: 4 }, gridW: 1, gridH: 2, pattern: [[6],[6]] },
+  { pattern: [[5]], result: { block: 6, count: 4 } },
+  { pattern: [[6,6],[6,6]], result: { block: 17, count: 1 } },
+];
+
+const RECIPES_3x3 = [
+  // Planks from log
+  { pattern: [[5]], result: { block: 6, count: 4 } },
+  // Sticks
+  { pattern: [[6],[6]], result: { item: 'stick', count: 4 } },
+  // Crafting table
+  { pattern: [[6,6],[6,6]], result: { block: 17, count: 1 } },
+  // Furnace
+  { pattern: [[4,4,4],[4,0,4],[4,4,4]], result: { block: 24, count: 1 } },
+  // Chest
+  { pattern: [[6,6,6],[6,0,6],[6,6,6]], result: { block: 25, count: 1 } },
+  // Wooden pickaxe
+  { pattern: [['P','P','P'],[0,'S',0],[0,'S',0]], materials: { P: 6, S: 'stick' }, result: { item: 'wooden_pickaxe', count: 1 } },
+  // Stone pickaxe
+  { pattern: [['P','P','P'],[0,'S',0],[0,'S',0]], materials: { P: 4, S: 'stick' }, result: { item: 'stone_pickaxe', count: 1 } },
+  // Iron pickaxe
+  { pattern: [['P','P','P'],[0,'S',0],[0,'S',0]], materials: { P: 'iron_ingot', S: 'stick' }, result: { item: 'iron_pickaxe', count: 1 } },
+  // Diamond pickaxe
+  { pattern: [['P','P','P'],[0,'S',0],[0,'S',0]], materials: { P: 'diamond', S: 'stick' }, result: { item: 'diamond_pickaxe', count: 1 } },
+  // Wooden sword
+  { pattern: [['P'],[  'P'],['S']], materials: { P: 6, S: 'stick' }, result: { item: 'wooden_sword', count: 1 } },
+  // Stone sword
+  { pattern: [['P'],['P'],['S']], materials: { P: 4, S: 'stick' }, result: { item: 'stone_sword', count: 1 } },
+  // Iron sword
+  { pattern: [['P'],['P'],['S']], materials: { P: 'iron_ingot', S: 'stick' }, result: { item: 'iron_sword', count: 1 } },
+  // Diamond sword
+  { pattern: [['P'],['P'],['S']], materials: { P: 'diamond', S: 'stick' }, result: { item: 'diamond_sword', count: 1 } },
+  // Wooden axe
+  { pattern: [['P','P'],['P','S'],[0,'S']], materials: { P: 6, S: 'stick' }, result: { item: 'wooden_axe', count: 1 } },
+  // Wooden shovel
+  { pattern: [['P'],['S'],['S']], materials: { P: 6, S: 'stick' }, result: { item: 'wooden_shovel', count: 1 } },
+  // Bread
+  { pattern: [['W','W','W']], materials: { W: 8 }, result: { item: 'bread', count: 1 } },
+  // Bookshelf
+  { pattern: [[6,6,6],['B','B','B'],[6,6,6]], materials: { B: 21 }, result: { block: 21, count: 1 } },
+  // TNT
+  { pattern: [['G',8,'G'],[8,'G',8],['G',8,'G']], materials: { G: 20 }, result: { block: 18, count: 1 } },
+  // Glass from sand (smelting simplified as crafting)
+  { pattern: [[8]], result: { block: 15, count: 1 } },
+  // Brick block
+  { pattern: [[16,16],[16,16]], result: { block: 16, count: 1 } },
+];
+
+// ============================================================
+// THREE.JS SETUP
+// ============================================================
+const THREE_CDN = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js';
+let THREE;
+
+function loadScript(url) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = url;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+// ============================================================
+// GAME STATE
+// ============================================================
+let scene, camera, renderer, clock;
+let world = {};
+let chunks = {};
+const CHUNK_SIZE = 16;
+const WORLD_HEIGHT = 64;
+const RENDER_DIST = 4;
+const SEA_LEVEL = 20;
+let playerPos = { x: 0, y: 40, z: 0 };
+let playerVel = { x: 0, y: 0, z: 0 };
+let yaw = 0, pitch = 0;
+let onGround = false;
+let sprinting = false;
+let gameStarted = false;
+let paused = false;
+let inventoryOpen = false;
+let craftingOpen = false;
+let selectedSlot = 0;
+let health = 20, maxHealth = 20;
+let food = 20, maxFood = 20;
+let xp = 0;
+let dayTime = 0.25;
+let daySpeed = 0.0002;
+let sunLight, ambientLight, skyColor;
+let breakingBlock = null;
+let breakProgress = 0;
+let breakMesh = null;
+let placeCooldown = 0;
+let animals = [];
+let punchAnim = 0;
+let punchActive = false;
+let blockMeshes = {};
+let highlightMesh;
+let lookAtBlock = null;
+let lookAtFace = null;
+
+// Inventory: array of {id, count, item} or null
+let inventory = new Array(36).fill(null);
+let craftGrid = [null, null, null, null]; // 2x2
+let craftResult = null;
+let ctGrid = new Array(9).fill(null); // 3x3
+let ctResult = null;
+let heldCursor = null; // item on cursor
+
+const keys = {};
+
+// ============================================================
+// PERLIN-ISH NOISE FOR TERRAIN
+// ============================================================
+class SimplexNoise {
+  constructor(seed) {
+    this.seed = seed;
+    this.perm = new Uint8Array(512);
+    let p = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) p[i] = i;
+    for (let i = 255; i > 0; i--) {
+      let n = (this.hash(i + seed) & 0x7fffffff) % (i + 1);
+      [p[i], p[n]] = [p[n], p[i]];
+    }
+    for (let i = 0; i < 512; i++) this.perm[i] = p[i & 255];
+  }
+  hash(n) { n = ((n >> 13) ^ n) * 1274126177; return n ^ (n >> 16); }
+  noise2D(x, y) {
+    let ix = Math.floor(x), iy = Math.floor(y);
+    let fx = x - ix, fy = y - iy;
+    let ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+    let a = this.grad(ix, iy, fx, fy);
+    let b = this.grad(ix + 1, iy, fx - 1, fy);
+    let c = this.grad(ix, iy + 1, fx, fy - 1);
+    let d = this.grad(ix + 1, iy + 1, fx - 1, fy - 1);
+    return a + ux * (b - a) + uy * (c - a) + ux * uy * (a - b - c + d);
+  }
+  grad(ix, iy, dx, dy) {
+    let h = this.perm[(ix & 255) + this.perm[iy & 255]] & 3;
+    return (h & 1 ? dx : -dx) + (h & 2 ? dy : -dy);
+  }
+}
+
+let noiseGen, noiseGen2, noiseGen3;
+
+function getHeight(wx, wz) {
+  let h = 0;
+  h += noiseGen.noise2D(wx * 0.01, wz * 0.01) * 20;
+  h += noiseGen2.noise2D(wx * 0.03, wz * 0.03) * 8;
+  h += noiseGen3.noise2D(wx * 0.08, wz * 0.08) * 3;
+  return Math.floor(h + 28);
+}
+
+function getBiome(wx, wz) {
+  let t = noiseGen.noise2D(wx * 0.005 + 500, wz * 0.005 + 500);
+  if (t > 0.3) return 'desert';
+  if (t < -0.4) return 'snow';
+  return 'plains';
+}
+
+// ============================================================
+// WORLD / CHUNK GENERATION
+// ============================================================
+function chunkKey(cx, cz) { return cx + ',' + cz; }
+function blockKey(x, y, z) { return x + ',' + y + ',' + z; }
+
+function getBlock(x, y, z) {
+  return world[blockKey(x, y, z)] ?? 0;
+}
+
+function setBlock(x, y, z, id) {
+  let k = blockKey(x, y, z);
+  if (id === 0) delete world[k];
+  else world[k] = id;
+}
+
+function generateChunk(cx, cz) {
+  let key = chunkKey(cx, cz);
+  if (chunks[key]) return;
+  chunks[key] = { generated: true, mesh: null };
+
+  let sx = cx * CHUNK_SIZE, sz = cz * CHUNK_SIZE;
+  for (let x = sx; x < sx + CHUNK_SIZE; x++) {
+    for (let z = sz; z < sz + CHUNK_SIZE; z++) {
+      let h = getHeight(x, z);
+      let biome = getBiome(x, z);
+
+      // Bedrock
+      setBlock(x, 0, z, 14);
+
+      // Stone layers
+      for (let y = 1; y < h - 4; y++) {
+        let ore = noiseGen3.noise2D(x * 0.1 + y * 0.3, z * 0.1 + y * 0.2);
+        if (y < 12 && ore > 0.7) setBlock(x, y, z, 13); // diamond
+        else if (y < 25 && ore > 0.65) setBlock(x, y, z, 12); // gold
+        else if (y < 40 && ore > 0.55) setBlock(x, y, z, 11); // iron
+        else if (ore > 0.5) setBlock(x, y, z, 10); // coal
+        else setBlock(x, y, z, 3);
+      }
+
+      // Top layers
+      if (biome === 'desert') {
+        for (let y = Math.max(1, h - 4); y < h; y++) setBlock(x, y, z, 8);
+        setBlock(x, h, z, 8);
+      } else if (biome === 'snow') {
+        for (let y = Math.max(1, h - 4); y < h; y++) setBlock(x, y, z, 2);
+        setBlock(x, h, z, 19);
+      } else {
+        for (let y = Math.max(1, h - 4); y < h; y++) setBlock(x, y, z, 2);
+        setBlock(x, h, z, 1);
+      }
+
+      // Water
+      if (h < SEA_LEVEL) {
+        for (let y = h + 1; y <= SEA_LEVEL; y++) {
+          if (getBlock(x, y, z) === 0) setBlock(x, y, z, 9);
+        }
+        if (biome !== 'desert') {
+          setBlock(x, h, z, 2); // underwater = dirt not grass
+        }
+      }
+
+      // Trees
+      if (biome === 'plains' && h > SEA_LEVEL && noise(x * 0.7, z * 0.7, 42) > 0.88) {
+        let treeH = 4 + ((noise(x, z, 99) * 3) | 0);
+        for (let ty = 1; ty <= treeH; ty++) setBlock(x, h + ty, z, 5);
+        for (let lx = -2; lx <= 2; lx++) for (let lz = -2; lz <= 2; lz++) for (let ly = treeH - 2; ly <= treeH + 1; ly++) {
+          if (lx === 0 && lz === 0 && ly <= treeH) continue;
+          if (Math.abs(lx) === 2 && Math.abs(lz) === 2 && noise(lx + x, lz + z, 55) > 0.5) continue;
+          if (getBlock(x + lx, h + ly, z + lz) === 0) setBlock(x + lx, h + ly, z + lz, 7);
+        }
+      }
+
+      // Flowers
+      if (biome === 'plains' && h > SEA_LEVEL && noise(x * 1.5, z * 1.5, 77) > 0.95) {
+        // pumpkin occasionally
+        if (noise(x, z, 78) > 0.5) setBlock(x, h + 1, z, 23);
+      }
+    }
+  }
+}
+
+// ============================================================
+// CHUNK MESH BUILDER
+// ============================================================
+let texMaterials = {};
+let texAtlas, texAtlasMap;
+
+function buildTextureAtlas() {
+  const names = Object.keys(textureCanvases);
+  const atlasSize = 512;
+  const tileSize = TEX_SIZE;
+  const cols = (atlasSize / tileSize) | 0;
+  const c = document.createElement('canvas');
+  c.width = c.height = atlasSize;
+  const ctx = c.getContext('2d');
+  texAtlasMap = {};
+  names.forEach((name, i) => {
+    let col = i % cols, row = (i / cols) | 0;
+    ctx.drawImage(textureCanvases[name], col * tileSize, row * tileSize);
+    texAtlasMap[name] = { u: col * tileSize / atlasSize, v: 1 - (row + 1) * tileSize / atlasSize, s: tileSize / atlasSize };
+  });
+  texAtlas = new THREE.CanvasTexture(c);
+  texAtlas.magFilter = THREE.NearestFilter;
+  texAtlas.minFilter = THREE.NearestFilter;
+}
+
+function getBlockTex(blockId, face) {
+  let b = BLOCKS[blockId];
+  if (!b) return 'dirt';
+  if (b.tex) return b.tex;
+  if (face === 'top') return b.texTop || b.tex || 'dirt';
+  if (face === 'bottom') return b.texBottom || b.tex || 'dirt';
+  if (face === 'front' && b.texFront) return b.texFront;
+  return b.texSide || b.tex || 'dirt';
+}
+
+function buildChunkMesh(cx, cz) {
+  let key = chunkKey(cx, cz);
+  let chunk = chunks[key];
+  if (!chunk) return;
+
+  if (chunk.mesh) {
+    scene.remove(chunk.mesh);
+    chunk.mesh.geometry.dispose();
+  }
+
+  const positions = [];
+  const uvs = [];
+  const colors = [];
+  const indices = [];
+  let vi = 0;
+
+  const sx = cx * CHUNK_SIZE, sz = cz * CHUNK_SIZE;
+
+  const faces = [
+    { dir: [0, 1, 0], face: 'top', verts: [[0,1,1],[1,1,1],[1,1,0],[0,1,0]], uv: [[0,1],[1,1],[1,0],[0,0]] },
+    { dir: [0, -1, 0], face: 'bottom', verts: [[0,0,0],[1,0,0],[1,0,1],[0,0,1]], uv: [[0,1],[1,1],[1,0],[0,0]] },
+    { dir: [0, 0, 1], face: 'front', verts: [[0,0,1],[1,0,1],[1,1,1],[0,1,1]], uv: [[0,0],[1,0],[1,1],[0,1]] },
+    { dir: [0, 0, -1], face: 'back', verts: [[1,0,0],[0,0,0],[0,1,0],[1,1,0]], uv: [[0,0],[1,0],[1,1],[0,1]] },
+    { dir: [1, 0, 0], face: 'side', verts: [[1,0,1],[1,0,0],[1,1,0],[1,1,1]], uv: [[0,0],[1,0],[1,1],[0,1]] },
+    { dir: [-1, 0, 0], face: 'side', verts: [[0,0,0],[0,0,1],[0,1,1],[0,1,0]], uv: [[0,0],[1,0],[1,1],[0,1]] },
+  ];
+
+  for (let x = sx; x < sx + CHUNK_SIZE; x++) {
+    for (let z = sz; z < sz + CHUNK_SIZE; z++) {
+      for (let y = 0; y <= WORLD_HEIGHT; y++) {
+        let blockId = getBlock(x, y, z);
+        if (blockId === 0) continue;
+        let block = BLOCKS[blockId];
+        if (!block) continue;
+
+        for (let f of faces) {
+          let nx = x + f.dir[0], ny = y + f.dir[1], nz = z + f.dir[2];
+          let neighbor = getBlock(nx, ny, nz);
+          let nBlock = BLOCKS[neighbor];
+
+          if (neighbor !== 0 && nBlock && (nBlock.solid !== false) && !nBlock.transparent && !nBlock.liquid) continue;
+          if (blockId === 9 && neighbor === 9) continue;
+
+          let texName = getBlockTex(blockId, f.face);
+          let atlas = texAtlasMap[texName] || texAtlasMap['dirt'];
+
+          let shade = 1.0;
+          if (f.face === 'top') shade = 1.0;
+          else if (f.face === 'bottom') shade = 0.5;
+          else if (f.dir[2] !== 0) shade = 0.7;
+          else shade = 0.8;
+
+          if (block.transparent || block.liquid) shade *= 0.9;
+
+          for (let v of f.verts) {
+            positions.push(x + v[0], y + v[1], z + v[2]);
+            colors.push(shade, shade, shade);
+          }
+          for (let uv of f.uv) {
+            uvs.push(atlas.u + uv[0] * atlas.s, atlas.v + uv[1] * atlas.s);
+          }
+          indices.push(vi, vi + 1, vi + 2, vi, vi + 2, vi + 3);
+          vi += 4;
+        }
+      }
+    }
+  }
+
+  if (positions.length === 0) return;
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geo.setIndex(indices);
+
+  const mat = new THREE.MeshBasicMaterial({
+    map: texAtlas,
+    vertexColors: true,
+    alphaTest: 0.1,
+    transparent: false,
+    side: THREE.FrontSide,
+  });
+
+  const mesh = new THREE.Mesh(geo, mat);
+  scene.add(mesh);
+  chunk.mesh = mesh;
+}
+
+function rebuildNearbyChunks(wx, wz) {
+  let cx = Math.floor(wx / CHUNK_SIZE);
+  let cz = Math.floor(wz / CHUNK_SIZE);
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    buildChunkMesh(cx + dx, cz + dz);
+  }
+}
+
+// ============================================================
+// ANIMAL ENTITIES
+// ============================================================
+function spawnAnimal(x, y, z, type) {
+  const group = new THREE.Group();
+  group.position.set(x + 0.5, y + 0.5, z + 0.5);
+
+  let bodyColor, headColor, legColor;
+  let bodyW, bodyH, bodyD;
+
+  if (type === 'pig') {
+    bodyColor = 0xf0a0a0;
+    headColor = 0xf0a0a0;
+    legColor = 0xd08080;
+    bodyW = 0.7; bodyH = 0.5; bodyD = 1.0;
+  } else if (type === 'cow') {
+    bodyColor = 0x443322;
+    headColor = 0x554433;
+    legColor = 0x332211;
+    bodyW = 0.8; bodyH = 0.6; bodyD = 1.2;
+  } else if (type === 'chicken') {
+    bodyColor = 0xffffff;
+    headColor = 0xffffff;
+    legColor = 0xffaa00;
+    bodyW = 0.35; bodyH = 0.35; bodyD = 0.45;
+  } else {
+    bodyColor = 0xeeeeee;
+    headColor = 0xeeeeee;
+    legColor = 0xcccccc;
+    bodyW = 0.6; bodyH = 0.5; bodyD = 0.9;
+  }
+
+  const bodyGeo = new THREE.BoxGeometry(bodyW, bodyH, bodyD);
+  const bodyMat = new THREE.MeshLambertMaterial({ color: bodyColor });
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  group.add(body);
+
+  const headGeo = new THREE.BoxGeometry(bodyW * 0.6, bodyH * 0.7, bodyW * 0.6);
+  const headMat = new THREE.MeshLambertMaterial({ color: headColor });
+  const head = new THREE.Mesh(headGeo, headMat);
+  head.position.set(0, bodyH * 0.3, bodyD * 0.5 + bodyW * 0.2);
+
+  if (type === 'pig') {
+    const snoutGeo = new THREE.BoxGeometry(0.2, 0.15, 0.1);
+    const snoutMat = new THREE.MeshLambertMaterial({ color: 0xffbbbb });
+    const snout = new THREE.Mesh(snoutGeo, snoutMat);
+    snout.position.set(0, -0.05, 0.2);
+    head.add(snout);
+  }
+
+  group.add(head);
+
+  const legGeo = new THREE.BoxGeometry(0.15, bodyH * 0.6, 0.15);
+  const legMat = new THREE.MeshLambertMaterial({ color: legColor });
+  const legPositions = [
+    [-bodyW * 0.3, -bodyH * 0.55, -bodyD * 0.3],
+    [bodyW * 0.3, -bodyH * 0.55, -bodyD * 0.3],
+    [-bodyW * 0.3, -bodyH * 0.55, bodyD * 0.3],
+    [bodyW * 0.3, -bodyH * 0.55, bodyD * 0.3],
+  ];
+  const legs = [];
+  for (let lp of legPositions) {
+    let leg = new THREE.Mesh(legGeo, legMat);
+    leg.position.set(lp[0], lp[1], lp[2]);
+    group.add(leg);
+    legs.push(leg);
+  }
+
+  scene.add(group);
+
+  animals.push({
+    mesh: group, type, legs, head,
+    vx: 0, vz: 0,
+    moveTimer: Math.random() * 3,
+    hp: type === 'cow' ? 10 : type === 'pig' ? 10 : 4,
+    walkPhase: Math.random() * Math.PI * 2,
+  });
+}
+
+function updateAnimals(dt) {
+  for (let a of animals) {
+    a.moveTimer -= dt;
+    if (a.moveTimer <= 0) {
+      a.moveTimer = 2 + Math.random() * 4;
+      let angle = Math.random() * Math.PI * 2;
+      let speed = 0.5 + Math.random() * 0.5;
+      a.vx = Math.sin(angle) * speed;
+      a.vz = Math.cos(angle) * speed;
+    }
+
+    let nx = a.mesh.position.x + a.vx * dt;
+    let nz = a.mesh.position.z + a.vz * dt;
+    let gy = getHeight(Math.floor(nx), Math.floor(nz)) + 1;
+
+    a.mesh.position.x = nx;
+    a.mesh.position.z = nz;
+    a.mesh.position.y += (gy + 0.5 - a.mesh.position.y) * 0.1;
+
+    if (a.vx !== 0 || a.vz !== 0) {
+      a.mesh.rotation.y = Math.atan2(a.vx, a.vz);
+      a.walkPhase += dt * 5;
+      for (let i = 0; i < a.legs.length; i++) {
+        a.legs[i].rotation.x = Math.sin(a.walkPhase + i * Math.PI * 0.5) * 0.3;
+      }
+    }
+  }
+}
+
+// ============================================================
+// INVENTORY SYSTEM
+// ============================================================
+function addToInventory(id, count, isItem) {
+  // Try stack first
+  for (let i = 0; i < 36; i++) {
+    if (inventory[i] && inventory[i].id === id && inventory[i].isItem === !!isItem) {
+      inventory[i].count += count;
+      updateHotbar();
+      return true;
+    }
+  }
+  // Find empty
+  for (let i = 0; i < 36; i++) {
+    if (!inventory[i]) {
+      inventory[i] = { id, count, isItem: !!isItem };
+      updateHotbar();
+      return true;
+    }
+  }
+  return false;
+}
+
+function getSlotTexture(slot) {
+  if (!slot) return null;
+  if (slot.isItem) {
+    let item = ITEMS[slot.id];
+    return item ? textureCanvases[item.tex] : null;
+  } else {
+    let block = BLOCKS[slot.id];
+    if (!block) return null;
+    let texName = block.texSide || block.texTop || block.tex || 'dirt';
+    return textureCanvases[texName];
+  }
+}
+
+function getSlotName(slot) {
+  if (!slot) return '';
+  if (slot.isItem) return ITEMS[slot.id]?.name || '?';
+  return BLOCKS[slot.id]?.name || '?';
+}
+
+function updateHotbar() {
+  let hb = document.getElementById('hotbar');
+  hb.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    let slot = document.createElement('div');
+    slot.className = 'hotbar-slot' + (i === selectedSlot ? ' selected' : '');
+    let item = inventory[i];
+    if (item) {
+      let tex = getSlotTexture(item);
+      if (tex) {
+        let c = document.createElement('canvas');
+        c.width = c.height = 16;
+        c.getContext('2d').drawImage(tex, 0, 0);
+        slot.appendChild(c);
+      }
+      if (item.count > 1) {
+        let cnt = document.createElement('span');
+        cnt.className = 'slot-count';
+        cnt.textContent = item.count;
+        slot.appendChild(cnt);
+      }
+    }
+    let key = document.createElement('span');
+    key.className = 'slot-key';
+    key.textContent = i + 1;
+    slot.appendChild(key);
+    hb.appendChild(slot);
+  }
+}
+
+function updateHealthBar() {
+  let hb = document.getElementById('health-bar');
+  hb.innerHTML = '';
+  for (let i = 0; i < 10; i++) {
+    let heart = document.createElement('canvas');
+    heart.className = 'heart';
+    heart.width = heart.height = 9;
+    let ctx = heart.getContext('2d');
+    if (health >= (i + 1) * 2) {
+      ctx.fillStyle = '#c00';
+      ctx.fillRect(0, 1, 2, 2); ctx.fillRect(7, 1, 2, 2);
+      ctx.fillRect(0, 3, 9, 3); ctx.fillRect(1, 6, 7, 1);
+      ctx.fillRect(2, 7, 5, 1); ctx.fillRect(3, 8, 3, 1);
+      ctx.fillRect(1, 0, 2, 2); ctx.fillRect(6, 0, 2, 2);
+    } else if (health >= i * 2 + 1) {
+      ctx.fillStyle = '#c00';
+      ctx.fillRect(0, 1, 2, 2); ctx.fillRect(0, 3, 5, 3);
+      ctx.fillRect(1, 0, 2, 2); ctx.fillRect(1, 6, 3, 1);
+      ctx.fillRect(2, 7, 2, 1); ctx.fillRect(3, 8, 1, 1);
+      ctx.fillStyle = '#400';
+      ctx.fillRect(7, 1, 2, 2); ctx.fillRect(5, 3, 4, 3);
+      ctx.fillRect(6, 0, 2, 2); ctx.fillRect(5, 6, 3, 1);
+      ctx.fillRect(5, 7, 2, 1); ctx.fillRect(4, 8, 2, 1);
+    } else {
+      ctx.fillStyle = '#400';
+      ctx.fillRect(0, 1, 2, 2); ctx.fillRect(7, 1, 2, 2);
+      ctx.fillRect(0, 3, 9, 3); ctx.fillRect(1, 6, 7, 1);
+      ctx.fillRect(2, 7, 5, 1); ctx.fillRect(3, 8, 3, 1);
+      ctx.fillRect(1, 0, 2, 2); ctx.fillRect(6, 0, 2, 2);
+    }
+    hb.appendChild(heart);
+  }
+}
+
+function updateFoodBar() {
+  let fb = document.getElementById('food-bar');
+  fb.innerHTML = '';
+  for (let i = 0; i < 10; i++) {
+    let f = document.createElement('canvas');
+    f.className = 'food';
+    f.width = f.height = 9;
+    let ctx = f.getContext('2d');
+    let full = food >= (i + 1) * 2;
+    let half = food >= i * 2 + 1;
+    ctx.fillStyle = full ? '#a65' : (half ? '#a65' : '#432');
+    ctx.fillRect(1, 1, 7, 6);
+    ctx.fillRect(2, 0, 2, 1);
+    ctx.fillRect(5, 0, 2, 1);
+    ctx.fillRect(2, 7, 5, 1);
+    ctx.fillRect(3, 8, 3, 1);
+    if (!full && !half) ctx.globalAlpha = 0.3;
+    fb.appendChild(f);
+  }
+}
+
+// ============================================================
+// INVENTORY UI
+// ============================================================
+function openInventory() {
+  inventoryOpen = true;
+  document.getElementById('inventory-screen').style.display = 'flex';
+  document.exitPointerLock?.();
+  renderInventoryUI();
+}
+
+function closeInventory() {
+  inventoryOpen = false;
+  document.getElementById('inventory-screen').style.display = 'none';
+  // Drop cursor item back
+  if (heldCursor) {
+    addToInventory(heldCursor.id, heldCursor.count, heldCursor.isItem);
+    heldCursor = null;
+  }
+  craftGrid = [null, null, null, null];
+  requestPointerLock();
+}
+
+function openCrafting() {
+  craftingOpen = true;
+  document.getElementById('crafting-screen').style.display = 'flex';
+  document.exitPointerLock?.();
+  renderCraftingUI();
+}
+
+function closeCrafting() {
+  craftingOpen = false;
+  document.getElementById('crafting-screen').style.display = 'none';
+  if (heldCursor) {
+    addToInventory(heldCursor.id, heldCursor.count, heldCursor.isItem);
+    heldCursor = null;
+  }
+  ctGrid = new Array(9).fill(null);
+  requestPointerLock();
+}
+
+function renderSlotHTML(slot, onClick) {
+  let div = document.createElement('div');
+  div.className = 'inv-slot';
+  if (slot) {
+    let tex = getSlotTexture(slot);
+    if (tex) {
+      let c = document.createElement('canvas');
+      c.width = c.height = 16;
+      c.getContext('2d').drawImage(tex, 0, 0);
+      div.appendChild(c);
+    }
+    if (slot.count > 1) {
+      let cnt = document.createElement('span');
+      cnt.className = 'slot-count';
+      cnt.textContent = slot.count;
+      div.appendChild(cnt);
+    }
+    div.title = getSlotName(slot);
+  }
+  div.addEventListener('click', onClick);
+  return div;
+}
+
+function renderInventoryUI() {
+  // Craft grid 2x2
+  let cg = document.getElementById('craft-grid');
+  cg.innerHTML = '';
+  for (let i = 0; i < 4; i++) {
+    cg.appendChild(renderSlotHTML(craftGrid[i], () => {
+      [heldCursor, craftGrid[i]] = swapSlot(heldCursor, craftGrid[i]);
+      checkCraft2x2();
+      renderInventoryUI();
+    }));
+  }
+
+  // Craft result
+  checkCraft2x2();
+  let cr = document.getElementById('craft-result');
+  cr.innerHTML = '';
+  let crSlot = renderSlotHTML(craftResult, () => {
+    if (craftResult && !heldCursor) {
+      heldCursor = { ...craftResult };
+      for (let i = 0; i < 4; i++) {
+        if (craftGrid[i]) {
+          craftGrid[i].count--;
+          if (craftGrid[i].count <= 0) craftGrid[i] = null;
+        }
+      }
+      craftResult = null;
+      renderInventoryUI();
+    }
+  });
+  cr.appendChild(crSlot);
+
+  // Main inv
+  let main = document.getElementById('inv-main');
+  main.innerHTML = '';
+  for (let i = 9; i < 36; i++) {
+    main.appendChild(renderSlotHTML(inventory[i], () => {
+      [heldCursor, inventory[i]] = swapSlot(heldCursor, inventory[i]);
+      renderInventoryUI();
+      updateHotbar();
+    }));
+  }
+
+  // Hotbar mirror
+  let hbm = document.getElementById('inv-hotbar-mirror');
+  hbm.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    hbm.appendChild(renderSlotHTML(inventory[i], () => {
+      [heldCursor, inventory[i]] = swapSlot(heldCursor, inventory[i]);
+      renderInventoryUI();
+      updateHotbar();
+    }));
+  }
+}
+
+function renderCraftingUI() {
+  let cg = document.getElementById('ct-grid');
+  cg.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    cg.appendChild(renderSlotHTML(ctGrid[i], () => {
+      [heldCursor, ctGrid[i]] = swapSlot(heldCursor, ctGrid[i]);
+      checkCraft3x3();
+      renderCraftingUI();
+    }));
+  }
+
+  checkCraft3x3();
+  let cr = document.getElementById('ct-result');
+  cr.innerHTML = '';
+  let crSlot = renderSlotHTML(ctResult, () => {
+    if (ctResult && !heldCursor) {
+      heldCursor = { ...ctResult };
+      for (let i = 0; i < 9; i++) {
+        if (ctGrid[i]) {
+          ctGrid[i].count--;
+          if (ctGrid[i].count <= 0) ctGrid[i] = null;
+        }
+      }
+      ctResult = null;
+      renderCraftingUI();
+    }
+  });
+  cr.appendChild(crSlot);
+
+  let inv = document.getElementById('ct-inv');
+  inv.innerHTML = '';
+  for (let i = 9; i < 36; i++) {
+    inv.appendChild(renderSlotHTML(inventory[i], () => {
+      [heldCursor, inventory[i]] = swapSlot(heldCursor, inventory[i]);
+      renderCraftingUI();
+      updateHotbar();
+    }));
+  }
+
+  let hb = document.getElementById('ct-hotbar');
+  hb.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    hb.appendChild(renderSlotHTML(inventory[i], () => {
+      [heldCursor, inventory[i]] = swapSlot(heldCursor, inventory[i]);
+      renderCraftingUI();
+      updateHotbar();
+    }));
+  }
+}
+
+function swapSlot(cursor, slot) {
+  if (!cursor && !slot) return [null, null];
+  if (!cursor) return [slot, null];
+  if (!slot) return [null, cursor];
+  if (cursor.id === slot.id && cursor.isItem === slot.isItem) {
+    slot.count += cursor.count;
+    return [null, slot];
+  }
+  return [slot, cursor];
+}
+
+function slotToGridId(slot) {
+  if (!slot) return 0;
+  if (slot.isItem) return slot.id;
+  return slot.id;
+}
+
+function checkCraft2x2() {
+  craftResult = matchRecipe(craftGrid, 2);
+}
+
+function checkCraft3x3() {
+  ctResult = matchRecipe(ctGrid, 3);
+}
+
+function matchRecipe(grid, size) {
+  for (let recipe of RECIPES_3x3) {
+    let pat = recipe.pattern;
+    let pH = pat.length;
+    let pW = pat[0].length;
+    if (pW > size || pH > size) continue;
+
+    for (let oy = 0; oy <= size - pH; oy++) {
+      for (let ox = 0; ox <= size - pW; ox++) {
+        if (tryMatch(grid, size, pat, recipe.materials, ox, oy, pW, pH)) {
+          if (recipe.result.item) return { id: recipe.result.item, count: recipe.result.count, isItem: true };
+          return { id: recipe.result.block, count: recipe.result.count, isItem: false };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function tryMatch(grid, size, pat, materials, ox, oy, pW, pH) {
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let gi = y * size + x;
+      let slot = grid[gi];
+      let py = y - oy, px = x - ox;
+
+      if (py >= 0 && py < pH && px >= 0 && px < pW) {
+        let expected = pat[py][px];
+        if (materials && typeof expected === 'string' && expected !== '0') {
+          let matId = materials[expected];
+          let slotId = slotToGridId(slot);
+          if (!slot || slotId !== matId) return false;
+        } else {
+          let expNum = typeof expected === 'number' ? expected : parseInt(expected) || 0;
+          let slotId = slot ? (slot.isItem ? -1 : slot.id) : 0;
+          if (slotId !== expNum) return false;
+        }
+      } else {
+        if (slot) return false;
+      }
+    }
+  }
+  return true;
+}
+
+// ============================================================
+// RAYCASTING FOR BLOCK SELECTION
+// ============================================================
+function raycastBlocks(origin, dir, maxDist) {
+  let x = Math.floor(origin.x), y = Math.floor(origin.y), z = Math.floor(origin.z);
+  let dx = dir.x, dy = dir.y, dz = dir.z;
+  let stepX = dx > 0 ? 1 : -1, stepY = dy > 0 ? 1 : -1, stepZ = dz > 0 ? 1 : -1;
+  let tMaxX = dx !== 0 ? ((dx > 0 ? x + 1 : x) - origin.x) / dx : Infinity;
+  let tMaxY = dy !== 0 ? ((dy > 0 ? y + 1 : y) - origin.y) / dy : Infinity;
+  let tMaxZ = dz !== 0 ? ((dz > 0 ? z + 1 : z) - origin.z) / dz : Infinity;
+  let tDeltaX = dx !== 0 ? Math.abs(1 / dx) : Infinity;
+  let tDeltaY = dy !== 0 ? Math.abs(1 / dy) : Infinity;
+  let tDeltaZ = dz !== 0 ? Math.abs(1 / dz) : Infinity;
+  let face = [0, 0, 0];
+
+  for (let i = 0; i < maxDist * 3; i++) {
+    let block = getBlock(x, y, z);
+    if (block !== 0 && block !== 9) {
+      let b = BLOCKS[block];
+      if (b && b.solid !== false) {
+        return { x, y, z, face, blockId: block };
+      }
+    }
+    if (tMaxX < tMaxY) {
+      if (tMaxX < tMaxZ) {
+        x += stepX; tMaxX += tDeltaX; face = [-stepX, 0, 0];
+      } else {
+        z += stepZ; tMaxZ += tDeltaZ; face = [0, 0, -stepZ];
+      }
+    } else {
+      if (tMaxY < tMaxZ) {
+        y += stepY; tMaxY += tDeltaY; face = [0, -stepY, 0];
+      } else {
+        z += stepZ; tMaxZ += tDeltaZ; face = [0, 0, -stepZ];
+      }
+    }
+  }
+  return null;
+}
+
+// ============================================================
+// PLAYER PHYSICS
+// ============================================================
+const GRAVITY = -20;
+const JUMP_VEL = 7;
+const WALK_SPEED = 4.3;
+const SPRINT_SPEED = 5.6;
+const PLAYER_HEIGHT = 1.62;
+const PLAYER_WIDTH = 0.3;
+
+function isSolid(x, y, z) {
+  let b = getBlock(Math.floor(x), Math.floor(y), Math.floor(z));
+  if (b === 0) return false;
+  let def = BLOCKS[b];
+  return def && def.solid !== false && !def.liquid;
+}
+
+function updatePlayer(dt) {
+  if (paused || inventoryOpen || craftingOpen) return;
+
+  let speed = sprinting ? SPRINT_SPEED : WALK_SPEED;
+  let moveX = 0, moveZ = 0;
+
+  if (keys['KeyW'] || keys['ArrowUp']) { moveX += Math.sin(yaw); moveZ += Math.cos(yaw); }
+  if (keys['KeyS'] || keys['ArrowDown']) { moveX -= Math.sin(yaw); moveZ -= Math.cos(yaw); }
+  if (keys['KeyA'] || keys['ArrowLeft']) { moveX += Math.cos(yaw); moveZ -= Math.sin(yaw); }
+  if (keys['KeyD'] || keys['ArrowRight']) { moveX -= Math.cos(yaw); moveZ += Math.sin(yaw); }
+
+  let len = Math.sqrt(moveX * moveX + moveZ * moveZ);
+  if (len > 0) { moveX /= len; moveZ /= len; }
+
+  playerVel.x = moveX * speed;
+  playerVel.z = moveZ * speed;
+  playerVel.y += GRAVITY * dt;
+
+  if (keys['Space'] && onGround) {
+    playerVel.y = JUMP_VEL;
+    onGround = false;
+  }
+
+  // Move X
+  let nx = playerPos.x + playerVel.x * dt;
+  if (!isSolid(nx - PLAYER_WIDTH, playerPos.y, playerPos.z) &&
+      !isSolid(nx + PLAYER_WIDTH, playerPos.y, playerPos.z) &&
+      !isSolid(nx - PLAYER_WIDTH, playerPos.y - 1, playerPos.z) &&
+      !isSolid(nx + PLAYER_WIDTH, playerPos.y - 1, playerPos.z) &&
+      !isSolid(nx, playerPos.y, playerPos.z - PLAYER_WIDTH) &&
+      !isSolid(nx, playerPos.y, playerPos.z + PLAYER_WIDTH)) {
+    playerPos.x = nx;
+  } else { playerVel.x = 0; }
+
+  // Move Z
+  let nz = playerPos.z + playerVel.z * dt;
+  if (!isSolid(playerPos.x, playerPos.y, nz - PLAYER_WIDTH) &&
+      !isSolid(playerPos.x, playerPos.y, nz + PLAYER_WIDTH) &&
+      !isSolid(playerPos.x, playerPos.y - 1, nz - PLAYER_WIDTH) &&
+      !isSolid(playerPos.x, playerPos.y - 1, nz + PLAYER_WIDTH)) {
+    playerPos.z = nz;
+  } else { playerVel.z = 0; }
+
+  // Move Y
+  let ny = playerPos.y + playerVel.y * dt;
+  onGround = false;
+  if (playerVel.y < 0) {
+    if (isSolid(playerPos.x, ny - PLAYER_HEIGHT, playerPos.z) ||
+        isSolid(playerPos.x - PLAYER_WIDTH, ny - PLAYER_HEIGHT, playerPos.z) ||
+        isSolid(playerPos.x + PLAYER_WIDTH, ny - PLAYER_HEIGHT, playerPos.z) ||
+        isSolid(playerPos.x, ny - PLAYER_HEIGHT, playerPos.z - PLAYER_WIDTH) ||
+        isSolid(playerPos.x, ny - PLAYER_HEIGHT, playerPos.z + PLAYER_WIDTH)) {
+      playerPos.y = Math.floor(ny - PLAYER_HEIGHT + 1) + PLAYER_HEIGHT;
+      playerVel.y = 0;
+      onGround = true;
+    } else {
+      playerPos.y = ny;
+    }
+  } else {
+    if (isSolid(playerPos.x, ny + 0.2, playerPos.z)) {
+      playerVel.y = 0;
+    } else {
+      playerPos.y = ny;
+    }
+  }
+
+  // Fall damage
+  if (playerPos.y < -10) {
+    health -= 2;
+    playerPos.y = 50;
+    playerVel.y = 0;
+    if (health <= 0) respawn();
+  }
+
+  // Food/health regen
+  if (food >= 18 && health < maxHealth) {
+    health = Math.min(maxHealth, health + dt * 0.5);
+  }
+
+  camera.position.set(playerPos.x, playerPos.y, playerPos.z);
+}
+
+function respawn() {
+  health = maxHealth;
+  food = maxFood;
+  playerPos.x = 0;
+  playerPos.z = 0;
+  playerPos.y = getHeight(0, 0) + 3;
+  playerVel.y = 0;
+}
+
+// ============================================================
+// BLOCK INTERACTION
+// ============================================================
+let mouseDown = false;
+let rightMouseDown = false;
+
+function updateBlockInteraction(dt) {
+  if (paused || inventoryOpen || craftingOpen) return;
+
+  let dir = new THREE.Vector3(0, 0, -1);
+  dir.applyQuaternion(camera.quaternion);
+  let hit = raycastBlocks(camera.position, dir, 6);
+
+  // Update highlight
+  if (hit) {
+    lookAtBlock = hit;
+    if (!highlightMesh) {
+      let geo = new THREE.BoxGeometry(1.005, 1.005, 1.005);
+      let edges = new THREE.EdgesGeometry(geo);
+      highlightMesh = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 }));
+      scene.add(highlightMesh);
+    }
+    highlightMesh.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5);
+    highlightMesh.visible = true;
+
+    // Breaking
+    if (mouseDown) {
+      let block = BLOCKS[hit.blockId];
+      if (block && block.hardness >= 0) {
+        if (!breakingBlock || breakingBlock.x !== hit.x || breakingBlock.y !== hit.y || breakingBlock.z !== hit.z) {
+          breakingBlock = { x: hit.x, y: hit.y, z: hit.z };
+          breakProgress = 0;
+        }
+
+        let toolSpeed = 1;
+        let held = inventory[selectedSlot];
+        if (held && held.isItem) {
+          let item = ITEMS[held.id];
+          if (item && item.type === block.tool) toolSpeed = item.speed || 2;
+        }
+
+        breakProgress += dt * toolSpeed;
+        let needed = block.hardness;
+        if (breakProgress >= needed) {
+          // Break block
+          let dropId = block.drop ?? hit.blockId;
+          let dropItem = block.dropItem;
+          setBlock(hit.x, hit.y, hit.z, 0);
+          if (dropItem) addToInventory(dropItem, 1, true);
+          else addToInventory(dropId, 1, false);
+          rebuildNearbyChunks(hit.x, hit.z);
+          breakingBlock = null;
+          breakProgress = 0;
+
+          // Durability
+          if (held && held.isItem) {
+            let item = ITEMS[held.id];
+            if (item && item.durability) {
+              held.durability = (held.durability || item.durability) - 1;
+              if (held.durability <= 0) inventory[selectedSlot] = null;
+              updateHotbar();
+            }
+          }
+        }
+
+        // Punch animation
+        punchActive = true;
+      }
+    } else {
+      breakingBlock = null;
+      breakProgress = 0;
+      punchActive = false;
+    }
+  } else {
+    lookAtBlock = null;
+    if (highlightMesh) highlightMesh.visible = false;
+    if (mouseDown) punchActive = true;
+    else punchActive = false;
+    breakingBlock = null;
+    breakProgress = 0;
+  }
+
+  placeCooldown -= dt;
+}
+
+function placeBlock() {
+  if (placeCooldown > 0) return;
+  let dir = new THREE.Vector3(0, 0, -1);
+  dir.applyQuaternion(camera.quaternion);
+  let hit = raycastBlocks(camera.position, dir, 6);
+  if (!hit) return;
+
+  // Check if crafting table - open crafting
+  if (BLOCKS[hit.blockId]?.interact) {
+    openCrafting();
+    return;
+  }
+
+  let held = inventory[selectedSlot];
+  if (!held || held.isItem) return;
+
+  // Eat food
+  if (held.isItem && ITEMS[held.id]?.food) {
+    eatFood(held);
+    return;
+  }
+
+  let px = hit.x + hit.face[0];
+  let py = hit.y + hit.face[1];
+  let pz = hit.z + hit.face[2];
+
+  // Don't place inside player
+  let dx = Math.abs(playerPos.x - (px + 0.5));
+  let dy1 = playerPos.y - py;
+  let dy2 = playerPos.y - PLAYER_HEIGHT - py;
+  let dz = Math.abs(playerPos.z - (pz + 0.5));
+  if (dx < 0.8 && dz < 0.8 && dy1 > -0.5 && dy2 < 1.5) return;
+
+  setBlock(px, py, pz, held.id);
+  held.count--;
+  if (held.count <= 0) inventory[selectedSlot] = null;
+  updateHotbar();
+  rebuildNearbyChunks(px, pz);
+  placeCooldown = 0.2;
+}
+
+function eatFood(slot) {
+  if (food >= maxFood) return;
+  let item = ITEMS[slot.id];
+  if (!item || !item.food) return;
+  food = Math.min(maxFood, food + item.food);
+  slot.count--;
+  if (slot.count <= 0) inventory[selectedSlot] = null;
+  updateHotbar();
+}
+
+// ============================================================
+// DAY/NIGHT CYCLE
+// ============================================================
+function updateDayNight(dt) {
+  dayTime += daySpeed * dt * 60;
+  if (dayTime > 1) dayTime -= 1;
+
+  let sunAngle = dayTime * Math.PI * 2;
+  let sunY = Math.sin(sunAngle);
+  let sunX = Math.cos(sunAngle);
+
+  let brightness = Math.max(0.15, Math.min(1, sunY + 0.3));
+
+  if (sunLight) {
+    sunLight.position.set(sunX * 100, sunY * 100, 50);
+    sunLight.intensity = Math.max(0.1, brightness);
+  }
+  if (ambientLight) {
+    ambientLight.intensity = 0.2 + brightness * 0.4;
+  }
+
+  // Sky color
+  let r, g, b;
+  if (sunY > 0.1) { // Day
+    r = 0.4 * brightness; g = 0.6 * brightness; b = 1.0 * brightness;
+  } else if (sunY > -0.1) { // Sunset/sunrise
+    let t = (sunY + 0.1) / 0.2;
+    r = 0.8 - t * 0.4; g = 0.3 + t * 0.3; b = 0.3 + t * 0.7;
+    r *= brightness + 0.3; g *= brightness + 0.3; b *= brightness + 0.3;
+  } else { // Night
+    r = 0.02; g = 0.02; b = 0.08;
+  }
+
+  if (scene) {
+    scene.background = new THREE.Color(r, g, b);
+    scene.fog.color.setRGB(r, g, b);
+  }
+}
+
+// ============================================================
+// PUNCH / HAND ANIMATION
+// ============================================================
+let handMesh;
+function createHandMesh() {
+  let geo = new THREE.BoxGeometry(0.2, 0.2, 0.6);
+  let mat = new THREE.MeshLambertMaterial({ color: 0xd4a574 });
+  handMesh = new THREE.Mesh(geo, mat);
+  camera.add(handMesh);
+  handMesh.position.set(0.5, -0.4, -0.6);
+  handMesh.rotation.set(-0.1, -0.3, 0);
+}
+
+function updateHandAnimation(dt) {
+  if (!handMesh) return;
+  if (punchActive) {
+    punchAnim += dt * 12;
+    let swing = Math.sin(punchAnim) * 0.5;
+    handMesh.rotation.x = -0.1 + swing;
+    handMesh.position.y = -0.4 + Math.abs(swing) * 0.2;
+  } else {
+    punchAnim = 0;
+    handMesh.rotation.x += (-0.1 - handMesh.rotation.x) * 0.1;
+    handMesh.position.y += (-0.4 - handMesh.position.y) * 0.1;
+    // Idle bob
+    let bob = Math.sin(Date.now() * 0.002) * 0.02;
+    handMesh.position.y += bob;
+  }
+
+  // Show held item texture on hand
+  let held = inventory[selectedSlot];
+  if (held) {
+    let tex = getSlotTexture(held);
+    if (tex && !handMesh._heldTex) {
+      // Tint hand slightly
+    }
+  }
+}
+
+// ============================================================
+// BREAK OVERLAY
+// ============================================================
+let breakOverlayMesh;
+function updateBreakOverlay() {
+  if (breakingBlock && breakProgress > 0) {
+    let block = BLOCKS[getBlock(breakingBlock.x, breakingBlock.y, breakingBlock.z)];
+    if (!block) return;
+    let pct = Math.min(1, breakProgress / block.hardness);
+
+    if (!breakOverlayMesh) {
+      let geo = new THREE.BoxGeometry(1.01, 1.01, 1.01);
+      let mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, wireframe: true });
+      breakOverlayMesh = new THREE.Mesh(geo, mat);
+      scene.add(breakOverlayMesh);
+    }
+    breakOverlayMesh.position.set(breakingBlock.x + 0.5, breakingBlock.y + 0.5, breakingBlock.z + 0.5);
+    breakOverlayMesh.material.opacity = pct * 0.5;
+    breakOverlayMesh.visible = true;
+  } else if (breakOverlayMesh) {
+    breakOverlayMesh.visible = false;
+  }
+}
+
+// ============================================================
+// TOOLTIP
+// ============================================================
+function updateTooltip() {
+  let tip = document.getElementById('tooltip');
+  if (lookAtBlock && !inventoryOpen && !craftingOpen && !paused) {
+    let block = BLOCKS[lookAtBlock.blockId];
+    if (block) {
+      tip.style.display = 'block';
+      tip.textContent = block.name;
+      tip.style.left = (window.innerWidth / 2 + 20) + 'px';
+      tip.style.top = (window.innerHeight / 2 - 10) + 'px';
+    }
+  } else {
+    tip.style.display = 'none';
+  }
+}
+
+// ============================================================
+// DEBUG INFO
+// ============================================================
+function updateDebug() {
+  let dbg = document.getElementById('debug');
+  if (!keys['F3']) { dbg.style.display = 'none'; return; }
+  dbg.style.display = 'block';
+  let fps = (1 / clock.getDelta()).toFixed(0);
+  let cx = Math.floor(playerPos.x / CHUNK_SIZE);
+  let cz = Math.floor(playerPos.z / CHUNK_SIZE);
+  dbg.innerHTML = `XYZ: ${playerPos.x.toFixed(1)} / ${playerPos.y.toFixed(1)} / ${playerPos.z.toFixed(1)}<br>` +
+    `Chunk: ${cx}, ${cz}<br>` +
+    `Block: ${lookAtBlock ? BLOCKS[lookAtBlock.blockId]?.name : 'none'}<br>` +
+    `Day: ${(dayTime * 24).toFixed(1)}h<br>` +
+    `Facing: ${((yaw * 180 / Math.PI) % 360).toFixed(0)}°`;
+}
+
+// ============================================================
+// CLOUDS
+// ============================================================
+let cloudMesh;
+function createClouds() {
+  let geo = new THREE.BufferGeometry();
+  let positions = [];
+  for (let i = 0; i < 50; i++) {
+    let cx = (Math.random() - 0.5) * 200;
+    let cz = (Math.random() - 0.5) * 200;
+    let cy = 50 + Math.random() * 5;
+    let w = 5 + Math.random() * 15;
+    let d = 3 + Math.random() * 8;
+    for (let x = 0; x < w; x += 2) {
+      for (let z = 0; z < d; z += 2) {
+        if (Math.random() > 0.3) {
+          let bx = cx + x, bz = cz + z;
+          positions.push(
+            bx, cy, bz, bx+2, cy, bz, bx+2, cy+1, bz,
+            bx, cy, bz, bx+2, cy+1, bz, bx, cy+1, bz,
+            bx, cy+1, bz, bx+2, cy+1, bz, bx+2, cy+1, bz+2,
+            bx, cy+1, bz, bx+2, cy+1, bz+2, bx, cy+1, bz+2,
+          );
+        }
+      }
+    }
+  }
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  let mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7, side: THREE.DoubleSide });
+  cloudMesh = new THREE.Mesh(geo, mat);
+  scene.add(cloudMesh);
+}
+
+// ============================================================
+// STARS
+// ============================================================
+let starsMesh;
+function createStars() {
+  let geo = new THREE.BufferGeometry();
+  let positions = [];
+  for (let i = 0; i < 500; i++) {
+    let theta = Math.random() * Math.PI * 2;
+    let phi = Math.random() * Math.PI;
+    let r = 200;
+    positions.push(r * Math.sin(phi) * Math.cos(theta), r * Math.cos(phi), r * Math.sin(phi) * Math.sin(theta));
+  }
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  starsMesh = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 1 }));
+  scene.add(starsMesh);
+}
+
+// ============================================================
+// MAIN INIT AND LOOP
+// ============================================================
+async function init3D() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0.5, 0.7, 1.0);
+  scene.fog = new THREE.Fog(0x87CEEB, 40, RENDER_DIST * CHUNK_SIZE);
+
+  camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 300);
+  scene.add(camera);
+
+  renderer = new THREE.WebGLRenderer({ antialias: false });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  document.body.appendChild(renderer.domElement);
+
+  sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  sunLight.position.set(50, 80, 30);
+  scene.add(sunLight);
+
+  ambientLight = new THREE.AmbientLight(0x606080, 0.5);
+  scene.add(ambientLight);
+
+  clock = new THREE.Clock();
+
+  buildTextureAtlas();
+  createHandMesh();
+  createClouds();
+  createStars();
+
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+}
+
+function generateWorld(progressCb) {
+  let seed = Math.random() * 10000;
+  noiseGen = new SimplexNoise(seed);
+  noiseGen2 = new SimplexNoise(seed + 1);
+  noiseGen3 = new SimplexNoise(seed + 2);
+
+  let totalChunks = (RENDER_DIST * 2 + 1) ** 2;
+  let done = 0;
+
+  for (let cx = -RENDER_DIST; cx <= RENDER_DIST; cx++) {
+    for (let cz = -RENDER_DIST; cz <= RENDER_DIST; cz++) {
+      generateChunk(cx, cz);
+      done++;
+    }
+  }
+
+  for (let cx = -RENDER_DIST; cx <= RENDER_DIST; cx++) {
+    for (let cz = -RENDER_DIST; cz <= RENDER_DIST; cz++) {
+      buildChunkMesh(cx, cz);
+    }
+  }
+
+  // Spawn animals
+  for (let i = 0; i < 20; i++) {
+    let ax = (Math.random() - 0.5) * RENDER_DIST * CHUNK_SIZE;
+    let az = (Math.random() - 0.5) * RENDER_DIST * CHUNK_SIZE;
+    let ah = getHeight(Math.floor(ax), Math.floor(az));
+    if (ah > SEA_LEVEL) {
+      let types = ['pig', 'cow', 'chicken', 'sheep'];
+      spawnAnimal(Math.floor(ax), ah + 1, Math.floor(az), types[(Math.random() * 4) | 0]);
+    }
+  }
+
+  // Set player pos
+  playerPos.y = getHeight(0, 0) + 3;
+}
+
+let lastChunkX = -999, lastChunkZ = -999;
+
+function updateChunks() {
+  let cx = Math.floor(playerPos.x / CHUNK_SIZE);
+  let cz = Math.floor(playerPos.z / CHUNK_SIZE);
+  if (cx === lastChunkX && cz === lastChunkZ) return;
+  lastChunkX = cx; lastChunkZ = cz;
+
+  for (let dx = -RENDER_DIST; dx <= RENDER_DIST; dx++) {
+    for (let dz = -RENDER_DIST; dz <= RENDER_DIST; dz++) {
+      let key = chunkKey(cx + dx, cz + dz);
+      if (!chunks[key]) {
+        generateChunk(cx + dx, cz + dz);
+        buildChunkMesh(cx + dx, cz + dz);
+      }
+    }
+  }
+
+  // Remove distant chunks
+  for (let key in chunks) {
+    let [ccx, ccz] = key.split(',').map(Number);
+    if (Math.abs(ccx - cx) > RENDER_DIST + 1 || Math.abs(ccz - cz) > RENDER_DIST + 1) {
+      if (chunks[key].mesh) {
+        scene.remove(chunks[key].mesh);
+        chunks[key].mesh.geometry.dispose();
+      }
+      delete chunks[key];
+    }
+  }
+}
+
+function gameLoop() {
+  requestAnimationFrame(gameLoop);
+  let dt = Math.min(clock.getDelta(), 0.05);
+
+  if (!gameStarted || paused) {
+    renderer.render(scene, camera);
+    return;
+  }
+
+  updatePlayer(dt);
+  updateBlockInteraction(dt);
+  updateHandAnimation(dt);
+  updateBreakOverlay();
+  updateDayNight(dt);
+  updateAnimals(dt);
+  updateChunks();
+  updateTooltip();
+  updateHealthBar();
+  updateFoodBar();
+
+  // Cloud movement
+  if (cloudMesh) cloudMesh.position.x += dt * 0.5;
+
+  // Stars visibility
+  if (starsMesh) {
+    starsMesh.visible = dayTime > 0.7 || dayTime < 0.25;
+    starsMesh.position.copy(camera.position);
+  }
+
+  camera.rotation.order = 'YXZ';
+  camera.rotation.y = yaw;
+  camera.rotation.x = pitch;
+
+  renderer.render(scene, camera);
+}
+
+// ============================================================
+// INPUT HANDLING
+// ============================================================
+function setupInput() {
+  document.addEventListener('keydown', e => {
+    keys[e.code] = true;
+
+    if (e.code === 'Escape') {
+      if (inventoryOpen) closeInventory();
+      else if (craftingOpen) closeCrafting();
+      else if (paused) resumeGame();
+      else pauseGame();
+      return;
+    }
+
+    if (e.code === 'KeyE' && gameStarted) {
+      if (craftingOpen) { closeCrafting(); return; }
+      if (inventoryOpen) closeInventory();
+      else openInventory();
+      return;
+    }
+
+    // Hotbar keys
+    if (e.code >= 'Digit1' && e.code <= 'Digit9') {
+      selectedSlot = parseInt(e.code.charAt(5)) - 1;
+      updateHotbar();
+    }
+
+    // Sprint
+    if (e.code === 'ControlLeft') sprinting = true;
+
+    // Eat food with right hand item
+    if (e.code === 'KeyQ' && gameStarted && !inventoryOpen && !craftingOpen) {
+      let held = inventory[selectedSlot];
+      if (held && held.isItem && ITEMS[held.id]?.food) {
+        eatFood(held);
+        updateHotbar();
+      }
+    }
+
+    if (e.code === 'F3') e.preventDefault();
+  });
+
+  document.addEventListener('keyup', e => {
+    keys[e.code] = false;
+    if (e.code === 'ControlLeft') sprinting = false;
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!gameStarted || paused || inventoryOpen || craftingOpen) return;
+    if (document.pointerLockElement) {
+      yaw -= e.movementX * 0.002;
+      pitch -= e.movementY * 0.002;
+      pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, pitch));
+    }
+  });
+
+  document.addEventListener('mousedown', e => {
+    if (!gameStarted || paused) return;
+    if (inventoryOpen || craftingOpen) return;
+    if (!document.pointerLockElement) { requestPointerLock(); return; }
+    if (e.button === 0) mouseDown = true;
+    if (e.button === 2) placeBlock();
+  });
+
+  document.addEventListener('mouseup', e => {
+    if (e.button === 0) mouseDown = false;
+  });
+
+  document.addEventListener('contextmenu', e => e.preventDefault());
+
+  document.addEventListener('wheel', e => {
+    if (!gameStarted || inventoryOpen || craftingOpen) return;
+    if (e.deltaY > 0) selectedSlot = (selectedSlot + 1) % 9;
+    else selectedSlot = (selectedSlot + 8) % 9;
+    updateHotbar();
+  });
+}
+
+function requestPointerLock() {
+  renderer?.domElement?.requestPointerLock?.();
+}
+
+function pauseGame() {
+  paused = true;
+  document.getElementById('pause-menu').style.display = 'flex';
+  document.exitPointerLock?.();
+}
+
+function resumeGame() {
+  paused = false;
+  document.getElementById('pause-menu').style.display = 'none';
+  requestPointerLock();
+}
+
+// ============================================================
+// INTRO SEQUENCE
+// ============================================================
+const splashTexts = [
+  "Also try Terraria!", "Singleplayer!", "100% JavaScript!", "Now with textures!",
+  "Punch trees, get wood!", "Diamonds!", "3D voxels!", "First person!",
+  "Crafting!", "Dynamic day/night!", "Animals!", "Inventory management!",
+];
+
+async function runIntro() {
+  let intro = document.getElementById('intro-screen');
+  let s1 = document.getElementById('studio1');
+  let s2 = document.getElementById('studio2');
+  let s3 = document.getElementById('studio3');
+
+  await sleep(500);
+  s1.style.opacity = '1';
+  await sleep(1200);
+  s2.style.opacity = '1';
+  await sleep(1200);
+  s3.style.opacity = '1';
+  await sleep(2000);
+  intro.style.opacity = '0';
+  await sleep(1000);
+  intro.style.display = 'none';
+
+  showMainMenu();
+}
+
+function showMainMenu() {
+  let menu = document.getElementById('main-menu');
+  menu.style.display = 'flex';
+  document.getElementById('splash-text').textContent = splashTexts[(Math.random() * splashTexts.length) | 0];
+}
+
+async function startGame(mode) {
+  document.getElementById('main-menu').style.display = 'none';
+  let loading = document.getElementById('loading-screen');
+  loading.style.display = 'flex';
+
+  let bar = document.getElementById('loading-bar-inner');
+  let text = document.getElementById('loading-text');
+
+  text.textContent = 'Loading Three.js...';
+  bar.style.width = '10%';
+  await sleep(300);
+
+  await loadScript(THREE_CDN);
+  THREE = window.THREE;
+
+  text.textContent = 'Initializing renderer...';
+  bar.style.width = '25%';
+  await sleep(200);
+
+  await init3D();
+
+  text.textContent = 'Generating terrain...';
+  bar.style.width = '40%';
+  await sleep(200);
+
+  generateWorld();
+  bar.style.width = '70%';
+  text.textContent = 'Spawning animals...';
+  await sleep(200);
+
+  bar.style.width = '85%';
+  text.textContent = 'Building chunks...';
+  await sleep(200);
+
+  // Give starting items
+  addToInventory(6, 32, false); // planks
+  addToInventory(4, 16, false); // cobble
+  addToInventory(5, 16, false); // logs
+  addToInventory('wooden_pickaxe', 1, true);
+  addToInventory('wooden_sword', 1, true);
+  addToInventory('apple', 10, true);
+  addToInventory(17, 1, false); // crafting table
+  addToInventory(18, 4, false); // TNT
+  addToInventory(8, 16, false); // sand
+
+  bar.style.width = '100%';
+  text.textContent = 'Done!';
+  await sleep(500);
+
+  loading.style.display = 'none';
+  gameStarted = true;
+
+  // Show HUD
+  document.getElementById('hud').style.display = 'flex';
+  document.getElementById('bars').style.display = 'block';
+  document.getElementById('xp-bar-outer').style.display = 'block';
+  document.getElementById('crosshair').style.display = 'block';
+  document.getElementById('punch-anim').style.display = 'block';
+
+  updateHotbar();
+  updateHealthBar();
+  updateFoodBar();
+  requestPointerLock();
+  gameLoop();
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ============================================================
+// BOOT
+// ============================================================
+setupInput();
+runIntro();
+</script>
 </body>
 </html>
