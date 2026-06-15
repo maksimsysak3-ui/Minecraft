@@ -1667,47 +1667,42 @@ function updatePlayer(dt) {
     onGround = false;
   }
 
+  // Collision helper: check if player AABB at (px,py,pz) overlaps any solid block
+  // Player hitbox: width PLAYER_WIDTH*2 centered on x/z, extends from py-PLAYER_HEIGHT to py
+  function collidesAt(px, py, pz) {
+    let minX = Math.floor(px - PLAYER_WIDTH), maxX = Math.floor(px + PLAYER_WIDTH);
+    let minZ = Math.floor(pz - PLAYER_WIDTH), maxZ = Math.floor(pz + PLAYER_WIDTH);
+    let minY = Math.floor(py - PLAYER_HEIGHT), maxY = Math.floor(py);
+    for (let bx = minX; bx <= maxX; bx++)
+      for (let bz = minZ; bz <= maxZ; bz++)
+        for (let by = minY; by <= maxY; by++)
+          if (isSolid(bx, by, bz)) return true;
+    return false;
+  }
+
   // Move X
   let nx = playerPos.x + playerVel.x * dt;
-  if (!isSolid(nx - PLAYER_WIDTH, playerPos.y, playerPos.z) &&
-      !isSolid(nx + PLAYER_WIDTH, playerPos.y, playerPos.z) &&
-      !isSolid(nx - PLAYER_WIDTH, playerPos.y - 1, playerPos.z) &&
-      !isSolid(nx + PLAYER_WIDTH, playerPos.y - 1, playerPos.z) &&
-      !isSolid(nx, playerPos.y, playerPos.z - PLAYER_WIDTH) &&
-      !isSolid(nx, playerPos.y, playerPos.z + PLAYER_WIDTH)) {
+  if (!collidesAt(nx, playerPos.y, playerPos.z)) {
     playerPos.x = nx;
   } else { playerVel.x = 0; }
 
   // Move Z
   let nz = playerPos.z + playerVel.z * dt;
-  if (!isSolid(playerPos.x, playerPos.y, nz - PLAYER_WIDTH) &&
-      !isSolid(playerPos.x, playerPos.y, nz + PLAYER_WIDTH) &&
-      !isSolid(playerPos.x, playerPos.y - 1, nz - PLAYER_WIDTH) &&
-      !isSolid(playerPos.x, playerPos.y - 1, nz + PLAYER_WIDTH)) {
+  if (!collidesAt(playerPos.x, playerPos.y, nz)) {
     playerPos.z = nz;
   } else { playerVel.z = 0; }
 
   // Move Y
   let ny = playerPos.y + playerVel.y * dt;
   onGround = false;
-  if (playerVel.y < 0) {
-    if (isSolid(playerPos.x, ny - PLAYER_HEIGHT, playerPos.z) ||
-        isSolid(playerPos.x - PLAYER_WIDTH, ny - PLAYER_HEIGHT, playerPos.z) ||
-        isSolid(playerPos.x + PLAYER_WIDTH, ny - PLAYER_HEIGHT, playerPos.z) ||
-        isSolid(playerPos.x, ny - PLAYER_HEIGHT, playerPos.z - PLAYER_WIDTH) ||
-        isSolid(playerPos.x, ny - PLAYER_HEIGHT, playerPos.z + PLAYER_WIDTH)) {
-      playerPos.y = Math.floor(ny - PLAYER_HEIGHT + 1) + PLAYER_HEIGHT;
-      playerVel.y = 0;
-      onGround = true;
-    } else {
-      playerPos.y = ny;
-    }
+  if (!collidesAt(playerPos.x, ny, playerPos.z)) {
+    playerPos.y = ny;
   } else {
-    if (isSolid(playerPos.x, ny + 0.2, playerPos.z)) {
-      playerVel.y = 0;
-    } else {
-      playerPos.y = ny;
+    if (playerVel.y < 0) {
+      playerPos.y = Math.floor(playerPos.y - PLAYER_HEIGHT) + 1 + PLAYER_HEIGHT;
+      onGround = true;
     }
+    playerVel.y = 0;
   }
 
   // Fall damage
@@ -1731,7 +1726,7 @@ function respawn() {
   food = maxFood;
   playerPos.x = 0;
   playerPos.z = 0;
-  playerPos.y = getHeight(0, 0) + 3;
+  playerPos.y = getHeight(0, 0) + 1 + PLAYER_HEIGHT + 0.1;
   playerVel.y = 0;
 }
 
@@ -2190,8 +2185,14 @@ function generateWorld(progressCb) {
     }
   }
 
-  // Set player pos
-  playerPos.y = getHeight(0, 0) + 3;
+  // Set player pos - clear blocks around spawn so player isn't stuck
+  let spawnH = getHeight(0, 0);
+  playerPos.y = spawnH + 1 + PLAYER_HEIGHT + 0.1;
+  for (let sx = -1; sx <= 1; sx++)
+    for (let sz = -1; sz <= 1; sz++)
+      for (let sy = spawnH + 1; sy <= spawnH + 3; sy++)
+        setBlock(sx, sy, sz, 0);
+  rebuildNearbyChunks(0, 0);
 }
 
 let lastChunkX = -999, lastChunkZ = -999;
