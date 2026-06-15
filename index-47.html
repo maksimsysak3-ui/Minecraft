@@ -1671,8 +1671,8 @@ function updatePlayer(dt) {
   let rightZ = fwdX;
 
   let moveX = 0, moveZ = 0;
-  if (keys['KeyW'] || keys['ArrowUp'])    { moveX -= fwdX; moveZ -= fwdZ; }
-  if (keys['KeyS'] || keys['ArrowDown'])   { moveX += fwdX; moveZ += fwdZ; }
+  if (keys['KeyW'] || keys['ArrowUp'])    { moveX += fwdX; moveZ += fwdZ; }
+  if (keys['KeyS'] || keys['ArrowDown'])   { moveX -= fwdX; moveZ -= fwdZ; }
   if (keys['KeyA'] || keys['ArrowLeft'])   { moveX -= rightX; moveZ -= rightZ; }
   if (keys['KeyD'] || keys['ArrowRight'])  { moveX += rightX; moveZ += rightZ; }
 
