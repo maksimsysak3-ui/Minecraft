@@ -1634,32 +1634,51 @@ const GRAVITY = -20;
 const JUMP_VEL = 7;
 const WALK_SPEED = 4.3;
 const SPRINT_SPEED = 5.6;
-const PLAYER_HEIGHT = 1.62;
-const PLAYER_WIDTH = 0.3;
+const PLAYER_EYE_HEIGHT = 1.62;
+const PLAYER_BODY_HEIGHT = 1.8;
+const PLAYER_HALF = 0.28;
 
-function isSolid(x, y, z) {
-  let b = getBlock(Math.floor(x), Math.floor(y), Math.floor(z));
+function solidAt(bx, by, bz) {
+  let b = getBlock(bx, by, bz);
   if (b === 0) return false;
   let def = BLOCKS[b];
   return def && def.solid !== false && !def.liquid;
 }
 
+function playerCollides(px, feetY, pz) {
+  let x0 = Math.floor(px - PLAYER_HALF), x1 = Math.floor(px + PLAYER_HALF);
+  let z0 = Math.floor(pz - PLAYER_HALF), z1 = Math.floor(pz + PLAYER_HALF);
+  let y0 = Math.floor(feetY), y1 = Math.floor(feetY + PLAYER_BODY_HEIGHT - 0.01);
+  for (let bx = x0; bx <= x1; bx++)
+    for (let bz = z0; bz <= z1; bz++)
+      for (let by = y0; by <= y1; by++)
+        if (solidAt(bx, by, bz)) return true;
+  return false;
+}
+
 function updatePlayer(dt) {
   if (paused || inventoryOpen || craftingOpen) return;
 
-  let speed = sprinting ? SPRINT_SPEED : WALK_SPEED;
-  let moveX = 0, moveZ = 0;
+  // feetY is the Y of the bottom of the player; eyeY = feetY + PLAYER_EYE_HEIGHT
+  let feetY = playerPos.y - PLAYER_EYE_HEIGHT;
 
-  if (keys['KeyW'] || keys['ArrowUp']) { moveX += Math.sin(yaw); moveZ += Math.cos(yaw); }
-  if (keys['KeyS'] || keys['ArrowDown']) { moveX -= Math.sin(yaw); moveZ -= Math.cos(yaw); }
-  if (keys['KeyA'] || keys['ArrowLeft']) { moveX += Math.cos(yaw); moveZ -= Math.sin(yaw); }
-  if (keys['KeyD'] || keys['ArrowRight']) { moveX -= Math.cos(yaw); moveZ += Math.sin(yaw); }
+  let speed = sprinting ? SPRINT_SPEED : WALK_SPEED;
+
+  // Forward is -Z in camera space, but we use yaw where 0 = looking toward +Z
+  let fwdX = -Math.sin(yaw);
+  let fwdZ = -Math.cos(yaw);
+  let rightX = -fwdZ;
+  let rightZ = fwdX;
+
+  let moveX = 0, moveZ = 0;
+  if (keys['KeyW'] || keys['ArrowUp'])    { moveX -= fwdX; moveZ -= fwdZ; }
+  if (keys['KeyS'] || keys['ArrowDown'])   { moveX += fwdX; moveZ += fwdZ; }
+  if (keys['KeyA'] || keys['ArrowLeft'])   { moveX -= rightX; moveZ -= rightZ; }
+  if (keys['KeyD'] || keys['ArrowRight'])  { moveX += rightX; moveZ += rightZ; }
 
   let len = Math.sqrt(moveX * moveX + moveZ * moveZ);
-  if (len > 0) { moveX /= len; moveZ /= len; }
+  if (len > 0) { moveX = moveX / len * speed; moveZ = moveZ / len * speed; }
 
-  playerVel.x = moveX * speed;
-  playerVel.z = moveZ * speed;
   playerVel.y += GRAVITY * dt;
 
   if (keys['Space'] && onGround) {
@@ -1667,52 +1686,46 @@ function updatePlayer(dt) {
     onGround = false;
   }
 
-  // Collision helper: check if player AABB at (px,py,pz) overlaps any solid block
-  // Player feet at py-PLAYER_HEIGHT, head at py-0.1 (eyes at py, head just below)
-  function collidesAt(px, py, pz) {
-    let minX = Math.floor(px - PLAYER_WIDTH), maxX = Math.floor(px + PLAYER_WIDTH);
-    let minZ = Math.floor(pz - PLAYER_WIDTH), maxZ = Math.floor(pz + PLAYER_WIDTH);
-    let feetY = py - PLAYER_HEIGHT;
-    let headY = py - 0.15;
-    let minY = Math.floor(feetY), maxY = Math.floor(headY);
-    for (let bx = minX; bx <= maxX; bx++)
-      for (let bz = minZ; bz <= maxZ; bz++)
-        for (let by = minY; by <= maxY; by++)
-          if (isSolid(bx, by, bz)) return true;
-    return false;
+  // Move X
+  let newX = playerPos.x + moveX * dt;
+  if (!playerCollides(newX, feetY, playerPos.z)) {
+    playerPos.x = newX;
   }
 
-  // Move X
-  let nx = playerPos.x + playerVel.x * dt;
-  if (!collidesAt(nx, playerPos.y, playerPos.z)) {
-    playerPos.x = nx;
-  } else { playerVel.x = 0; }
-
   // Move Z
-  let nz = playerPos.z + playerVel.z * dt;
-  if (!collidesAt(playerPos.x, playerPos.y, nz)) {
-    playerPos.z = nz;
-  } else { playerVel.z = 0; }
+  let newZ = playerPos.z + moveZ * dt;
+  if (!playerCollides(playerPos.x, feetY, newZ)) {
+    playerPos.z = newZ;
+  }
 
   // Move Y
-  let ny = playerPos.y + playerVel.y * dt;
+  let newFeetY = feetY + playerVel.y * dt;
   onGround = false;
-  if (!collidesAt(playerPos.x, ny, playerPos.z)) {
-    playerPos.y = ny;
+  if (!playerCollides(playerPos.x, newFeetY, playerPos.z)) {
+    feetY = newFeetY;
   } else {
     if (playerVel.y < 0) {
-      playerPos.y = Math.floor(playerPos.y - PLAYER_HEIGHT) + 1 + PLAYER_HEIGHT;
+      // Snap feet to top of the block we landed on
+      feetY = Math.floor(feetY) + 0.001;
+      if (playerCollides(playerPos.x, feetY, playerPos.z)) {
+        feetY = Math.floor(feetY) + 1.001;
+      }
       onGround = true;
+    } else {
+      // Hit ceiling, snap down
+      feetY = Math.ceil(feetY + PLAYER_BODY_HEIGHT) - PLAYER_BODY_HEIGHT - 0.001;
     }
     playerVel.y = 0;
   }
 
-  // Fall damage
+  playerPos.y = feetY + PLAYER_EYE_HEIGHT;
+
+  // Void death
   if (playerPos.y < -10) {
     health -= 2;
-    playerPos.y = 50;
     playerVel.y = 0;
     if (health <= 0) respawn();
+    else { playerPos.y = 50; }
   }
 
   // Food/health regen
@@ -1728,7 +1741,7 @@ function respawn() {
   food = maxFood;
   playerPos.x = 0;
   playerPos.z = 0;
-  playerPos.y = getHeight(0, 0) + 1 + PLAYER_HEIGHT + 0.1;
+  playerPos.y = getHeight(0, 0) + 1 + PLAYER_EYE_HEIGHT + 0.1;
   playerVel.y = 0;
 }
 
@@ -1846,7 +1859,7 @@ function placeBlock() {
   // Don't place inside player
   let dx = Math.abs(playerPos.x - (px + 0.5));
   let dy1 = playerPos.y - py;
-  let dy2 = playerPos.y - PLAYER_HEIGHT - py;
+  let dy2 = playerPos.y - PLAYER_EYE_HEIGHT - py;
   let dz = Math.abs(playerPos.z - (pz + 0.5));
   if (dx < 0.8 && dz < 0.8 && dy1 > -0.5 && dy2 < 1.5) return;
 
@@ -2189,7 +2202,7 @@ function generateWorld(progressCb) {
 
   // Set player pos - clear a wide area around spawn
   let spawnH = getHeight(0, 0);
-  playerPos.y = spawnH + 1 + PLAYER_HEIGHT + 0.5;
+  playerPos.y = spawnH + 1 + PLAYER_EYE_HEIGHT + 0.5;
   for (let sx = -3; sx <= 3; sx++)
     for (let sz = -3; sz <= 3; sz++)
       for (let sy = spawnH + 1; sy <= spawnH + 8; sy++)
