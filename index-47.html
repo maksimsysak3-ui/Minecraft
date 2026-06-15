@@ -80,6 +80,7 @@ canvas{display:block;}
 
 /* Crafting Table */
 #crafting-screen{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:200;display:none;align-items:center;justify-content:center;}
+#crafting-outer{display:flex;gap:8px;align-items:flex-start;}
 #crafting-panel{background:#c6c6c6;border:4px solid #000;padding:8px;width:450px;}
 #ct-title{text-align:center;font-size:14px;margin-bottom:6px;color:#404040;}
 #ct-crafting{display:flex;align-items:center;gap:10px;margin-bottom:10px;justify-content:center;}
@@ -88,6 +89,16 @@ canvas{display:block;}
 #ct-arrow{font-size:24px;color:#404040;}
 #ct-inv{display:grid;grid-template-columns:repeat(9,40px);gap:2px;margin-top:6px;}
 #ct-hotbar{display:grid;grid-template-columns:repeat(9,40px);gap:2px;margin-top:8px;padding-top:6px;border-top:2px solid #888;}
+#recipe-sidebar{background:#c6c6c6;border:4px solid #000;padding:6px;width:190px;max-height:480px;overflow-y:auto;}
+#recipe-sidebar h3{font-size:12px;color:#404040;margin-bottom:4px;text-align:center;}
+.recipe-entry{display:flex;align-items:center;gap:6px;padding:4px;margin:2px 0;cursor:pointer;background:#aaa;border:2px solid;border-color:#ddd #777 #777 #ddd;}
+.recipe-entry:hover{background:#bbb;border-color:#eee #888 #888 #eee;}
+.recipe-entry canvas{width:24px;height:24px;image-rendering:pixelated;flex-shrink:0;}
+.recipe-entry span{font-size:11px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.recipe-unavailable{opacity:0.4;pointer-events:none;}
+#cursor-item{position:fixed;z-index:9999;pointer-events:none;display:none;}
+#cursor-item canvas{width:32px;height:32px;image-rendering:pixelated;}
+#cursor-item .cursor-count{position:absolute;bottom:0;right:0;color:#fff;font-size:10px;text-shadow:1px 1px #000;font-weight:bold;}
 
 /* Pause menu */
 #pause-menu{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:300;display:none;align-items:center;justify-content:center;flex-direction:column;}
@@ -164,17 +175,24 @@ canvas{display:block;}
 
 <!-- Crafting Table -->
 <div id="crafting-screen">
-  <div id="crafting-panel">
-    <div id="ct-title">Crafting</div>
-    <div id="ct-crafting">
-      <div id="ct-grid"></div>
-      <div id="ct-arrow">➡</div>
-      <div id="ct-result" class="inv-slot"></div>
+  <div id="crafting-outer">
+    <div id="crafting-panel">
+      <div id="ct-title">Crafting</div>
+      <div id="ct-crafting">
+        <div id="ct-grid"></div>
+        <div id="ct-arrow">➡</div>
+        <div id="ct-result" class="inv-slot"></div>
+      </div>
+      <div id="ct-inv"></div>
+      <div id="ct-hotbar"></div>
     </div>
-    <div id="ct-inv"></div>
-    <div id="ct-hotbar"></div>
+    <div id="recipe-sidebar">
+      <h3>Recipes</h3>
+      <div id="recipe-list"></div>
+    </div>
   </div>
 </div>
+<div id="cursor-item"><canvas width="16" height="16"></canvas><span class="cursor-count"></span></div>
 
 <!-- Pause -->
 <div id="pause-menu">
@@ -220,42 +238,58 @@ function noise(x, y, seed) {
 
 // GRASS BLOCK TOP
 createTexture('grass_top', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#5d9b2a');
   for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
-    let g = 100 + noise(x, y, 1) * 60;
-    let r = 30 + noise(x, y, 2) * 20;
-    px(ctx, x, y, `rgb(${r|0},${g|0},${30})`);
+    let v = noise(x, y, 1);
+    if (v > 0.7) px(ctx, x, y, '#4a8522');
+    else if (v > 0.5) px(ctx, x, y, '#69a832');
+    else if (v < 0.15) px(ctx, x, y, '#508c26');
   }
 });
 
 // GRASS BLOCK SIDE
 createTexture('grass_side', (ctx, s) => {
-  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
-    if (y < 3) {
-      let g = 100 + noise(x, y, 1) * 60;
-      px(ctx, x, y, `rgb(${30},${g|0},${20})`);
-    } else {
-      let b = 130 + noise(x, y, 3) * 40;
-      px(ctx, x, y, `rgb(${b|0},${(b*0.7)|0},${(b*0.5)|0})`);
-    }
+  fillRect(ctx, 0, 0, s, s, '#8b6a4a');
+  // Dirt texture base
+  for (let y = 3; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = noise(x, y, 3);
+    if (v > 0.65) px(ctx, x, y, '#7a5c3c');
+    else if (v < 0.2) px(ctx, x, y, '#9a7a58');
+  }
+  // Green top strip
+  fillRect(ctx, 0, 0, s, 1, '#5d9b2a');
+  for (let x = 0; x < s; x++) {
+    let h = 1 + ((noise(x, 0, 2) > 0.5) ? 1 : 0);
+    fillRect(ctx, x, 0, 1, h, '#5d9b2a');
+    if (noise(x, 1, 4) > 0.6) px(ctx, x, h, '#4a8522');
   }
 });
 
 // DIRT
 createTexture('dirt', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#8b6a4a');
   for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
-    let b = 130 + noise(x, y, 3) * 50;
-    px(ctx, x, y, `rgb(${b|0},${(b*0.7)|0},${(b*0.45)|0})`);
+    let v = noise(x, y, 3);
+    if (v > 0.7) px(ctx, x, y, '#7a5c3c');
+    else if (v > 0.55) px(ctx, x, y, '#806040');
+    else if (v < 0.15) px(ctx, x, y, '#9a7a58');
   }
 });
 
 // STONE
 createTexture('stone', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#8a8a8a');
   for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
-    let v = 120 + noise(x, y, 5) * 40;
-    px(ctx, x, y, `rgb(${v|0},${v|0},${v|0})`);
+    let v = noise(x, y, 5);
+    if (v > 0.75) px(ctx, x, y, '#7a7a7a');
+    else if (v < 0.2) px(ctx, x, y, '#969696');
   }
-  fillRect(ctx, 3, 4, 5, 3, '#666');
-  fillRect(ctx, 9, 10, 4, 3, '#777');
+  // Cracks
+  fillRect(ctx, 2, 5, 6, 1, '#777');
+  fillRect(ctx, 8, 3, 1, 4, '#777');
+  fillRect(ctx, 4, 10, 7, 1, '#777');
+  fillRect(ctx, 10, 10, 1, 4, '#777');
+  fillRect(ctx, 1, 12, 5, 1, '#777');
 });
 
 // COBBLESTONE
@@ -570,117 +604,153 @@ createTexture('chest_side', (ctx, s) => {
 // ============================================================
 // ITEM TEXTURES
 // ============================================================
-createTexture('wooden_sword', (ctx) => {
-  fillRect(ctx, 7, 1, 2, 9, '#c8a84e');
-  fillRect(ctx, 6, 10, 4, 1, '#8B6914');
-  fillRect(ctx, 7, 11, 2, 4, '#654');
-});
+function drawSword(ctx, bladeColor, darkBlade) {
+  // Blade - diagonal style like MC
+  px(ctx, 3, 13, bladeColor); px(ctx, 4, 12, bladeColor);
+  px(ctx, 5, 11, bladeColor); px(ctx, 6, 10, bladeColor);
+  px(ctx, 7, 9, bladeColor); px(ctx, 8, 8, bladeColor);
+  px(ctx, 9, 7, bladeColor); px(ctx, 10, 6, bladeColor);
+  px(ctx, 11, 5, bladeColor); px(ctx, 12, 4, bladeColor);
+  px(ctx, 13, 3, bladeColor); px(ctx, 13, 4, darkBlade);
+  px(ctx, 12, 5, darkBlade); px(ctx, 11, 6, darkBlade);
+  px(ctx, 10, 7, darkBlade); px(ctx, 9, 8, darkBlade);
+  px(ctx, 4, 13, darkBlade); px(ctx, 5, 12, darkBlade);
+  px(ctx, 6, 11, darkBlade); px(ctx, 7, 10, darkBlade);
+  px(ctx, 8, 9, darkBlade); px(ctx, 14, 2, bladeColor);
+  // Crossguard
+  px(ctx, 4, 10, '#8B6914'); px(ctx, 5, 9, '#6B4914');
+  px(ctx, 3, 11, '#8B6914'); px(ctx, 6, 8, '#6B4914');
+  // Handle
+  px(ctx, 2, 12, '#654321'); px(ctx, 1, 13, '#654321');
+  px(ctx, 2, 13, '#553319'); px(ctx, 1, 14, '#553319');
+}
+createTexture('wooden_sword', (ctx) => { drawSword(ctx, '#c8a84e', '#a08030'); });
+createTexture('stone_sword', (ctx) => { drawSword(ctx, '#aaa', '#888'); });
+createTexture('iron_sword', (ctx) => { drawSword(ctx, '#e8e8e8', '#bbb'); });
+createTexture('diamond_sword', (ctx) => { drawSword(ctx, '#5cf2f2', '#3cc8c8'); });
 
-createTexture('stone_sword', (ctx) => {
-  fillRect(ctx, 7, 1, 2, 9, '#999');
-  fillRect(ctx, 6, 10, 4, 1, '#8B6914');
-  fillRect(ctx, 7, 11, 2, 4, '#654');
-});
-
-createTexture('iron_sword', (ctx) => {
-  fillRect(ctx, 7, 1, 2, 9, '#ddd');
-  fillRect(ctx, 6, 10, 4, 1, '#8B6914');
-  fillRect(ctx, 7, 11, 2, 4, '#654');
-});
-
-createTexture('diamond_sword', (ctx) => {
-  fillRect(ctx, 7, 1, 2, 9, '#5cf2f2');
-  fillRect(ctx, 6, 10, 4, 1, '#8B6914');
-  fillRect(ctx, 7, 11, 2, 4, '#654');
-});
-
-createTexture('wooden_pickaxe', (ctx) => {
-  fillRect(ctx, 3, 1, 10, 2, '#c8a84e');
-  fillRect(ctx, 3, 3, 2, 2, '#c8a84e');
-  fillRect(ctx, 11, 3, 2, 2, '#c8a84e');
-  fillRect(ctx, 7, 3, 2, 11, '#654');
-});
-
-createTexture('stone_pickaxe', (ctx) => {
-  fillRect(ctx, 3, 1, 10, 2, '#999');
-  fillRect(ctx, 3, 3, 2, 2, '#999');
-  fillRect(ctx, 11, 3, 2, 2, '#999');
-  fillRect(ctx, 7, 3, 2, 11, '#654');
-});
-
-createTexture('iron_pickaxe', (ctx) => {
-  fillRect(ctx, 3, 1, 10, 2, '#ddd');
-  fillRect(ctx, 3, 3, 2, 2, '#ddd');
-  fillRect(ctx, 11, 3, 2, 2, '#ddd');
-  fillRect(ctx, 7, 3, 2, 11, '#654');
-});
-
-createTexture('diamond_pickaxe', (ctx) => {
-  fillRect(ctx, 3, 1, 10, 2, '#5cf2f2');
-  fillRect(ctx, 3, 3, 2, 2, '#5cf2f2');
-  fillRect(ctx, 11, 3, 2, 2, '#5cf2f2');
-  fillRect(ctx, 7, 3, 2, 11, '#654');
-});
+function drawPickaxe(ctx, headColor, darkHead) {
+  // Handle diagonal
+  px(ctx, 4, 12, '#654321'); px(ctx, 5, 11, '#654321');
+  px(ctx, 6, 10, '#654321'); px(ctx, 7, 9, '#654321');
+  px(ctx, 3, 13, '#553319'); px(ctx, 4, 13, '#553319');
+  px(ctx, 5, 12, '#553319');
+  // Head
+  px(ctx, 8, 8, headColor); px(ctx, 9, 7, headColor);
+  px(ctx, 10, 6, headColor); px(ctx, 11, 5, headColor);
+  px(ctx, 12, 4, headColor); px(ctx, 13, 3, headColor);
+  px(ctx, 14, 2, headColor);
+  px(ctx, 12, 3, darkHead); px(ctx, 13, 2, darkHead);
+  px(ctx, 9, 8, darkHead); px(ctx, 10, 7, darkHead);
+  px(ctx, 11, 6, darkHead); px(ctx, 8, 7, headColor);
+  px(ctx, 13, 4, headColor); px(ctx, 14, 3, headColor);
+  px(ctx, 7, 8, headColor);
+}
+createTexture('wooden_pickaxe', (ctx) => { drawPickaxe(ctx, '#c8a84e', '#a08030'); });
+createTexture('stone_pickaxe', (ctx) => { drawPickaxe(ctx, '#aaa', '#888'); });
+createTexture('iron_pickaxe', (ctx) => { drawPickaxe(ctx, '#e8e8e8', '#bbb'); });
+createTexture('diamond_pickaxe', (ctx) => { drawPickaxe(ctx, '#5cf2f2', '#3cc8c8'); });
 
 createTexture('wooden_axe', (ctx) => {
-  fillRect(ctx, 4, 1, 5, 2, '#c8a84e');
-  fillRect(ctx, 3, 3, 3, 4, '#c8a84e');
-  fillRect(ctx, 7, 3, 2, 11, '#654');
+  // Handle
+  px(ctx, 4, 12, '#654321'); px(ctx, 5, 11, '#654321');
+  px(ctx, 6, 10, '#654321'); px(ctx, 7, 9, '#654321');
+  px(ctx, 3, 13, '#553319');
+  // Axe head
+  fillRect(ctx, 9, 5, 3, 1, '#c8a84e'); fillRect(ctx, 10, 4, 3, 1, '#c8a84e');
+  fillRect(ctx, 11, 3, 3, 1, '#c8a84e'); fillRect(ctx, 8, 6, 2, 1, '#c8a84e');
+  fillRect(ctx, 8, 7, 1, 1, '#a08030'); px(ctx, 9, 6, '#a08030');
 });
 
 createTexture('wooden_shovel', (ctx) => {
-  fillRect(ctx, 6, 1, 4, 5, '#c8a84e');
-  fillRect(ctx, 7, 6, 2, 9, '#654');
+  // Handle
+  px(ctx, 7, 15, '#654321'); px(ctx, 7, 14, '#654321');
+  px(ctx, 7, 13, '#654321'); px(ctx, 7, 12, '#654321');
+  px(ctx, 7, 11, '#654321'); px(ctx, 8, 15, '#553319');
+  px(ctx, 8, 14, '#553319'); px(ctx, 8, 13, '#553319');
+  px(ctx, 8, 12, '#553319'); px(ctx, 8, 11, '#553319');
+  // Head
+  fillRect(ctx, 6, 4, 4, 6, '#c8a84e');
+  fillRect(ctx, 7, 3, 2, 1, '#c8a84e');
+  fillRect(ctx, 7, 10, 2, 1, '#a08030');
+  px(ctx, 6, 5, '#a08030'); px(ctx, 9, 5, '#dab060');
 });
 
 createTexture('stick', (ctx) => {
-  fillRect(ctx, 7, 2, 2, 12, '#8B6914');
+  for (let i = 0; i < 10; i++) {
+    px(ctx, 7, 3+i, '#8B6914');
+    px(ctx, 8, 3+i, '#6B4914');
+  }
 });
 
 createTexture('coal', (ctx) => {
-  fillRect(ctx, 4, 3, 8, 10, '#222');
-  fillRect(ctx, 5, 2, 6, 1, '#333');
-  fillRect(ctx, 6, 5, 2, 2, '#444');
+  fillRect(ctx, 5, 4, 6, 8, '#1a1a1a');
+  fillRect(ctx, 4, 5, 1, 6, '#222');
+  fillRect(ctx, 11, 5, 1, 6, '#111');
+  fillRect(ctx, 6, 3, 4, 1, '#222');
+  fillRect(ctx, 6, 12, 4, 1, '#111');
+  px(ctx, 6, 5, '#3a3a3a'); px(ctx, 7, 6, '#333');
 });
 
 createTexture('iron_ingot', (ctx) => {
-  fillRect(ctx, 3, 5, 10, 7, '#ddd');
-  fillRect(ctx, 5, 3, 6, 2, '#ccc');
-  fillRect(ctx, 4, 6, 3, 2, '#eee');
+  fillRect(ctx, 3, 7, 10, 5, '#d8d8d8');
+  fillRect(ctx, 5, 5, 6, 2, '#ccc');
+  fillRect(ctx, 4, 8, 2, 2, '#eee');
+  fillRect(ctx, 3, 7, 10, 1, '#e8e8e8');
+  fillRect(ctx, 3, 11, 10, 1, '#b8b8b8');
 });
 
 createTexture('gold_ingot', (ctx) => {
-  fillRect(ctx, 3, 5, 10, 7, '#fc5');
-  fillRect(ctx, 5, 3, 6, 2, '#da3');
-  fillRect(ctx, 4, 6, 3, 2, '#fe6');
+  fillRect(ctx, 3, 7, 10, 5, '#fcdb05');
+  fillRect(ctx, 5, 5, 6, 2, '#e8c800');
+  fillRect(ctx, 4, 8, 2, 2, '#ffe84d');
+  fillRect(ctx, 3, 7, 10, 1, '#ffe033');
+  fillRect(ctx, 3, 11, 10, 1, '#c8a600');
 });
 
 createTexture('diamond', (ctx) => {
-  fillRect(ctx, 5, 3, 6, 3, '#5cf2f2');
-  fillRect(ctx, 3, 6, 10, 4, '#4ad8d8');
-  fillRect(ctx, 5, 10, 6, 2, '#3cbaba');
-  fillRect(ctx, 6, 4, 2, 2, '#8fffff');
+  // Diamond shape
+  fillRect(ctx, 6, 3, 4, 1, '#8fffff');
+  fillRect(ctx, 5, 4, 6, 2, '#5cf2f2');
+  fillRect(ctx, 4, 6, 8, 3, '#4ad8d8');
+  fillRect(ctx, 5, 9, 6, 2, '#3cbaba');
+  fillRect(ctx, 6, 11, 4, 1, '#2ea0a0');
+  px(ctx, 6, 4, '#a0ffff'); px(ctx, 7, 5, '#8fffff');
 });
 
 createTexture('apple', (ctx) => {
-  fillRect(ctx, 5, 4, 6, 8, '#e22');
-  fillRect(ctx, 4, 5, 1, 6, '#c11');
-  fillRect(ctx, 11, 5, 1, 6, '#c11');
-  fillRect(ctx, 7, 2, 2, 3, '#3a3');
-  fillRect(ctx, 6, 5, 2, 2, '#f55');
+  // Rounder apple shape
+  fillRect(ctx, 6, 4, 4, 1, '#d42020');
+  fillRect(ctx, 5, 5, 6, 5, '#e83030');
+  fillRect(ctx, 6, 10, 4, 1, '#c01818');
+  px(ctx, 5, 5, '#c82020'); px(ctx, 10, 5, '#c82020');
+  px(ctx, 5, 9, '#b01818'); px(ctx, 10, 9, '#b01818');
+  // Highlight
+  px(ctx, 6, 5, '#ff5050'); px(ctx, 7, 5, '#ff4040');
+  // Stem
+  px(ctx, 8, 3, '#5a3a0a'); px(ctx, 8, 2, '#5a3a0a');
+  // Leaf
+  px(ctx, 9, 2, '#3a8a2a'); px(ctx, 10, 2, '#3a8a2a');
 });
 
 createTexture('bread', (ctx) => {
-  fillRect(ctx, 2, 6, 12, 6, '#c8a84e');
-  fillRect(ctx, 3, 5, 10, 1, '#dab060');
-  fillRect(ctx, 3, 7, 10, 1, '#b89840');
+  fillRect(ctx, 3, 7, 10, 4, '#c8944e');
+  fillRect(ctx, 4, 6, 8, 1, '#daa860');
+  fillRect(ctx, 3, 7, 10, 1, '#e0b868');
+  fillRect(ctx, 3, 10, 10, 1, '#a07030');
+  fillRect(ctx, 4, 11, 8, 1, '#906028');
+  px(ctx, 3, 7, '#b08040'); px(ctx, 12, 7, '#b08040');
 });
 
 createTexture('cooked_pork', (ctx) => {
-  fillRect(ctx, 2, 4, 12, 8, '#c88060');
-  fillRect(ctx, 3, 5, 4, 3, '#e8a080');
-  fillRect(ctx, 9, 6, 3, 3, '#e8a080');
-  fillRect(ctx, 3, 9, 8, 2, '#a06040');
+  fillRect(ctx, 3, 5, 10, 6, '#c88060');
+  fillRect(ctx, 4, 4, 8, 1, '#d89070');
+  fillRect(ctx, 4, 11, 8, 1, '#a06040');
+  // Fat streaks
+  fillRect(ctx, 4, 6, 3, 2, '#f0c0a0');
+  fillRect(ctx, 9, 7, 3, 2, '#f0c0a0');
+  // Grill marks
+  fillRect(ctx, 3, 8, 10, 1, '#805030');
 });
 
 // ============================================================
@@ -1515,6 +1585,130 @@ function renderCraftingUI() {
       updateHotbar();
     }));
   }
+
+  renderRecipeSidebar();
+}
+
+function getRecipeResultName(recipe) {
+  if (recipe.result.item) return ITEMS[recipe.result.item]?.name || recipe.result.item;
+  return BLOCKS[recipe.result.block]?.name || '?';
+}
+
+function getRecipeResultTex(recipe) {
+  if (recipe.result.item) {
+    let it = ITEMS[recipe.result.item];
+    return it ? textureCanvases[it.tex] : null;
+  }
+  let b = BLOCKS[recipe.result.block];
+  if (!b) return null;
+  return textureCanvases[b.texSide || b.texTop || b.tex || 'dirt'];
+}
+
+function countInInventory(id, isItem) {
+  let total = 0;
+  for (let i = 0; i < 36; i++) {
+    if (inventory[i] && inventory[i].id === id && inventory[i].isItem === !!isItem) total += inventory[i].count;
+  }
+  return total;
+}
+
+function canCraftRecipe(recipe) {
+  let pat = recipe.pattern;
+  let needed = {};
+  for (let row of pat) {
+    for (let cell of row) {
+      if (cell === 0) continue;
+      let matId = cell;
+      if (recipe.materials && typeof cell === 'string') matId = recipe.materials[cell];
+      if (matId === undefined || matId === 0) continue;
+      let key = typeof matId === 'string' ? 'i:' + matId : 'b:' + matId;
+      needed[key] = (needed[key] || 0) + 1;
+    }
+  }
+  for (let key in needed) {
+    let isItem = key.startsWith('i:');
+    let id = isItem ? key.slice(2) : parseInt(key.slice(2));
+    if (countInInventory(id, isItem) < needed[key]) return false;
+  }
+  return true;
+}
+
+function autoFillRecipe(recipe) {
+  // Clear grid first, return items to inventory
+  for (let i = 0; i < 9; i++) {
+    if (ctGrid[i]) { addToInventory(ctGrid[i].id, ctGrid[i].count, ctGrid[i].isItem); ctGrid[i] = null; }
+  }
+  let pat = recipe.pattern;
+  let pH = pat.length, pW = pat[0].length;
+  for (let y = 0; y < pH; y++) {
+    for (let x = 0; x < pW; x++) {
+      let cell = pat[y][x];
+      if (cell === 0) continue;
+      let matId = cell;
+      let isItem = false;
+      if (recipe.materials && typeof cell === 'string') {
+        matId = recipe.materials[cell];
+      }
+      if (matId === undefined || matId === 0) continue;
+      if (typeof matId === 'string') isItem = true;
+      // Take from inventory
+      let taken = false;
+      for (let i = 0; i < 36; i++) {
+        if (inventory[i] && inventory[i].id === matId && inventory[i].isItem === isItem) {
+          inventory[i].count--;
+          if (inventory[i].count <= 0) inventory[i] = null;
+          ctGrid[y * 3 + x] = { id: matId, count: 1, isItem };
+          taken = true;
+          break;
+        }
+      }
+    }
+  }
+  checkCraft3x3();
+  renderCraftingUI();
+  updateHotbar();
+}
+
+function renderRecipeSidebar() {
+  let list = document.getElementById('recipe-list');
+  if (!list) return;
+  list.innerHTML = '';
+  for (let recipe of RECIPES_3x3) {
+    let name = getRecipeResultName(recipe);
+    let tex = getRecipeResultTex(recipe);
+    let available = canCraftRecipe(recipe);
+    let entry = document.createElement('div');
+    entry.className = 'recipe-entry' + (available ? '' : ' recipe-unavailable');
+    if (tex) {
+      let c = document.createElement('canvas');
+      c.width = c.height = 16;
+      c.getContext('2d').drawImage(tex, 0, 0);
+      entry.appendChild(c);
+    }
+    let span = document.createElement('span');
+    let countStr = recipe.result.count > 1 ? ' x' + recipe.result.count : '';
+    span.textContent = name + countStr;
+    entry.appendChild(span);
+    if (available) {
+      entry.addEventListener('click', () => autoFillRecipe(recipe));
+    }
+    list.appendChild(entry);
+  }
+}
+
+function updateCursorItemDisplay() {
+  let ci = document.getElementById('cursor-item');
+  if (!ci) return;
+  if (!heldCursor) { ci.style.display = 'none'; return; }
+  ci.style.display = 'block';
+  let tex = getSlotTexture(heldCursor);
+  let canvas = ci.querySelector('canvas');
+  if (tex && canvas) {
+    canvas.getContext('2d').clearRect(0, 0, 16, 16);
+    canvas.getContext('2d').drawImage(tex, 0, 0);
+  }
+  let cnt = ci.querySelector('.cursor-count');
+  cnt.textContent = heldCursor.count > 1 ? heldCursor.count : '';
 }
 
 function swapSlot(cursor, slot) {
@@ -2326,6 +2520,11 @@ function setupInput() {
   });
 
   document.addEventListener('mousemove', e => {
+    // Update cursor item position
+    let ci = document.getElementById('cursor-item');
+    if (ci) { ci.style.left = (e.clientX + 8) + 'px'; ci.style.top = (e.clientY + 8) + 'px'; }
+    updateCursorItemDisplay();
+
     if (!gameStarted || paused || inventoryOpen || craftingOpen) return;
     if (document.pointerLockElement) {
       yaw -= e.movementX * 0.002;
