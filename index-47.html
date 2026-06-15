@@ -964,7 +964,7 @@ function generateChunk(cx, cz) {
       }
 
       // Trees
-      if (biome === 'plains' && h > SEA_LEVEL && noise(x * 0.7, z * 0.7, 42) > 0.88) {
+      if (biome === 'plains' && h > SEA_LEVEL && noise(x * 0.7, z * 0.7, 42) > 0.96) {
         let treeH = 4 + ((noise(x, z, 99) * 3) | 0);
         for (let ty = 1; ty <= treeH; ty++) setBlock(x, h + ty, z, 5);
         for (let lx = -2; lx <= 2; lx++) for (let lz = -2; lz <= 2; lz++) for (let ly = treeH - 2; ly <= treeH + 1; ly++) {
@@ -1914,6 +1914,10 @@ function updateDayNight(dt) {
 // PUNCH / HAND ANIMATION
 // ============================================================
 let handMesh;
+let heldItemMesh = null;
+let lastHeldId = null;
+let lastHeldIsItem = null;
+
 function createHandMesh() {
   let geo = new THREE.BoxGeometry(0.2, 0.2, 0.6);
   let mat = new THREE.MeshLambertMaterial({ color: 0xd4a574 });
@@ -1923,29 +1927,86 @@ function createHandMesh() {
   handMesh.rotation.set(-0.1, -0.3, 0);
 }
 
+function updateHeldItemMesh() {
+  let held = inventory[selectedSlot];
+  let hId = held ? held.id : null;
+  let hIsItem = held ? held.isItem : null;
+  if (hId === lastHeldId && hIsItem === lastHeldIsItem) return;
+  lastHeldId = hId;
+  lastHeldIsItem = hIsItem;
+
+  if (heldItemMesh) { camera.remove(heldItemMesh); heldItemMesh = null; }
+
+  if (!held) {
+    handMesh.visible = true;
+    return;
+  }
+
+  handMesh.visible = false;
+
+  if (!held.isItem) {
+    // Block in hand — show a small 3D cube with the block's texture
+    let blockDef = BLOCKS[held.id];
+    if (!blockDef) { handMesh.visible = true; return; }
+    let texName = blockDef.texSide || blockDef.texTop || blockDef.tex || 'dirt';
+    let topName = blockDef.texTop || texName;
+    let botName = blockDef.texBottom || texName;
+    let c = textureCanvases[texName], ct = textureCanvases[topName], cb = textureCanvases[botName];
+
+    let materials = [
+      makeTexMat(c), makeTexMat(c),
+      makeTexMat(ct), makeTexMat(cb),
+      makeTexMat(c), makeTexMat(c),
+    ];
+    let geo = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+    heldItemMesh = new THREE.Mesh(geo, materials);
+    heldItemMesh.position.set(0.55, -0.35, -0.55);
+    heldItemMesh.rotation.set(0.2, 0.8, 0.1);
+    camera.add(heldItemMesh);
+  } else {
+    // Item in hand — flat sprite quad
+    let item = ITEMS[held.id];
+    if (!item) { handMesh.visible = true; return; }
+    let c = textureCanvases[item.tex];
+    if (!c) { handMesh.visible = true; return; }
+    let tex = new THREE.CanvasTexture(c);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    let mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.1, side: THREE.DoubleSide });
+    let geo = new THREE.PlaneGeometry(0.45, 0.45);
+    heldItemMesh = new THREE.Mesh(geo, mat);
+    heldItemMesh.position.set(0.5, -0.3, -0.55);
+    heldItemMesh.rotation.set(-0.3, 0.6, 0.4);
+    camera.add(heldItemMesh);
+  }
+}
+
+function makeTexMat(canvas) {
+  let t = new THREE.CanvasTexture(canvas);
+  t.magFilter = THREE.NearestFilter;
+  t.minFilter = THREE.NearestFilter;
+  return new THREE.MeshLambertMaterial({ map: t });
+}
+
 function updateHandAnimation(dt) {
-  if (!handMesh) return;
+  if (!handMesh && !heldItemMesh) return;
+  let target = heldItemMesh || handMesh;
+  let baseY = heldItemMesh ? -0.35 : -0.4;
+
+  updateHeldItemMesh();
+
   if (punchActive) {
     punchAnim += dt * 12;
     let swing = Math.sin(punchAnim) * 0.5;
-    handMesh.rotation.x = -0.1 + swing;
-    handMesh.position.y = -0.4 + Math.abs(swing) * 0.2;
+    target.rotation.x = (heldItemMesh ? -0.3 : -0.1) + swing;
+    target.position.y = baseY + Math.abs(swing) * 0.2;
   } else {
     punchAnim = 0;
-    handMesh.rotation.x += (-0.1 - handMesh.rotation.x) * 0.1;
-    handMesh.position.y += (-0.4 - handMesh.position.y) * 0.1;
-    // Idle bob
+    let restX = heldItemMesh ? -0.3 : -0.1;
+    target.rotation.x += (restX - target.rotation.x) * 0.1;
+    target.position.y += (baseY - target.position.y) * 0.1;
     let bob = Math.sin(Date.now() * 0.002) * 0.02;
-    handMesh.position.y += bob;
-  }
-
-  // Show held item texture on hand
-  let held = inventory[selectedSlot];
-  if (held) {
-    let tex = getSlotTexture(held);
-    if (tex && !handMesh._heldTex) {
-      // Tint hand slightly
-    }
+    target.position.y += bob;
   }
 }
 
