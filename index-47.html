@@ -208,7 +208,7 @@ canvas{display:block;}
 // ============================================================
 // TEXTURE GENERATOR - Creates pixel art textures for all blocks
 // ============================================================
-const TEX_SIZE = 16;
+const TEX_SIZE = 32;
 const textures = {};
 const textureCanvases = {};
 
@@ -602,6 +602,77 @@ createTexture('chest_side', (ctx, s) => {
   fillRect(ctx, 0, 7, s, 1, '#6a5010');
 });
 
+createTexture('stone_bricks', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#8a8a8a');
+  for (let y = 0; y < s; y += Math.floor(s/4)) fillRect(ctx, 0, y, s, 1, '#666');
+  fillRect(ctx, Math.floor(s/2), 0, 1, Math.floor(s/2), '#666');
+  fillRect(ctx, 0, Math.floor(s/2), Math.floor(s/2), 1, '#666');
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) { if (noise(x,y,20)>0.8) px(ctx,x,y,'#7a7a7a'); }
+});
+
+createTexture('mossy_cobble', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#888');
+  for (let i = 0; i < 8; i++) {
+    let rx = (noise(i,0,9)*12)|0, ry = (noise(0,i,9)*12)|0;
+    let rw = 2+(noise(i,i,9)*4)|0, rh = 2+(noise(i,i+1,9)*4)|0;
+    let v = 100+(noise(i,i,10)*50)|0;
+    fillRect(ctx, rx, ry, rw, rh, `rgb(${v},${v},${v})`);
+  }
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    if (noise(x,y,21) > 0.65) px(ctx, x, y, `rgb(${40+noise(x,y,22)*30|0},${80+noise(x,y,23)*40|0},${30})`);
+  }
+});
+
+createTexture('clay', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#9da4b0');
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    if (noise(x,y,24)>0.7) px(ctx,x,y,'#8a9099');
+    else if (noise(x,y,24)<0.15) px(ctx,x,y,'#a8b0bc');
+  }
+});
+
+createTexture('obsidian', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#0f0a1a');
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    if (noise(x,y,25)>0.7) px(ctx,x,y,'#1a1030');
+    else if (noise(x,y,25)<0.2) px(ctx,x,y,'#2a1848');
+  }
+});
+
+createTexture('redstone_ore', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#8a8a8a');
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = noise(x,y,5); if (v>0.75) px(ctx,x,y,'#7a7a7a'); else if (v<0.2) px(ctx,x,y,'#969696');
+  }
+  for (let sp of [[3,3],[5,5],[4,4],[10,9],[11,11],[8,13],[13,5]]) fillRect(ctx,sp[0],sp[1],2,2,'#cc2020');
+});
+
+createTexture('lapis_ore', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#8a8a8a');
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = noise(x,y,5); if (v>0.75) px(ctx,x,y,'#7a7a7a'); else if (v<0.2) px(ctx,x,y,'#969696');
+  }
+  for (let sp of [[3,4],[5,5],[4,6],[10,10],[11,11]]) fillRect(ctx,sp[0],sp[1],2,2,'#2244aa');
+});
+
+createTexture('emerald_ore', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#8a8a8a');
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    let v = noise(x,y,5); if (v>0.75) px(ctx,x,y,'#7a7a7a'); else if (v<0.2) px(ctx,x,y,'#969696');
+  }
+  for (let sp of [[5,5],[10,10]]) fillRect(ctx,sp[0],sp[1],3,3,'#20cc40');
+});
+
+createTexture('cactus', (ctx, s) => {
+  fillRect(ctx, 0, 0, s, s, '#2a7a2a');
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    if (noise(x,y,26)>0.6) px(ctx,x,y,'#1a6a1a');
+  }
+  for (let y = 2; y < s; y += 4) for (let x = 2; x < s; x += 5) {
+    px(ctx, x, y, '#4a4a1a');
+  }
+});
+
 // ============================================================
 // ITEM TEXTURES
 // ============================================================
@@ -735,7 +806,8 @@ createTexture('apple', (ctx, s) => {
   px(ctx, 9, 2, '#3a8a2a'); px(ctx, 10, 2, '#3a8a2a');
 });
 
-createTexture('bread', (ctx) => {
+createTexture('bread', (ctx, s) => {
+  ctx.clearRect(0, 0, s, s);
   fillRect(ctx, 3, 7, 10, 4, '#c8944e');
   fillRect(ctx, 4, 6, 8, 1, '#daa860');
   fillRect(ctx, 3, 7, 10, 1, '#e0b868');
@@ -744,7 +816,8 @@ createTexture('bread', (ctx) => {
   px(ctx, 3, 7, '#b08040'); px(ctx, 12, 7, '#b08040');
 });
 
-createTexture('cooked_pork', (ctx) => {
+createTexture('cooked_pork', (ctx, s) => {
+  ctx.clearRect(0, 0, s, s);
   fillRect(ctx, 3, 5, 10, 6, '#c88060');
   fillRect(ctx, 4, 4, 8, 1, '#d89070');
   fillRect(ctx, 4, 11, 8, 1, '#a06040');
@@ -785,6 +858,18 @@ const BLOCKS = {
   23: { name: 'Pumpkin', texTop: 'pumpkin_side', texSide: 'pumpkin_front', texBottom: 'pumpkin_side', hardness: 1 },
   24: { name: 'Furnace', texTop: 'furnace_side', texFront: 'furnace_front', texSide: 'furnace_side', texBottom: 'furnace_side', hardness: 3.5, tool: 'pickaxe' },
   25: { name: 'Chest', texTop: 'chest_side', texFront: 'chest_front', texSide: 'chest_side', texBottom: 'chest_side', hardness: 2.5, tool: 'axe' },
+  26: { name: 'Oak Stairs', tex: 'planks', hardness: 2, tool: 'axe', isStair: true },
+  27: { name: 'Stone Stairs', tex: 'cobblestone', hardness: 2, tool: 'pickaxe', isStair: true },
+  28: { name: 'Oak Slab', tex: 'planks', hardness: 2, tool: 'axe', isSlab: true },
+  29: { name: 'Stone Slab', tex: 'cobblestone', hardness: 2, tool: 'pickaxe', isSlab: true },
+  30: { name: 'Stone Bricks', tex: 'stone_bricks', hardness: 1.5, tool: 'pickaxe' },
+  31: { name: 'Mossy Cobblestone', tex: 'mossy_cobble', hardness: 2, tool: 'pickaxe' },
+  32: { name: 'Clay', tex: 'clay', hardness: 0.6, tool: 'shovel' },
+  33: { name: 'Obsidian', tex: 'obsidian', hardness: 50, tool: 'pickaxe' },
+  34: { name: 'Redstone Ore', tex: 'redstone_ore', hardness: 3, tool: 'pickaxe', dropItem: 'redstone' },
+  35: { name: 'Lapis Ore', tex: 'lapis_ore', hardness: 3, tool: 'pickaxe', dropItem: 'lapis' },
+  36: { name: 'Emerald Ore', tex: 'emerald_ore', hardness: 3, tool: 'pickaxe', dropItem: 'emerald' },
+  37: { name: 'Cactus', tex: 'cactus', hardness: 0.4 },
 };
 
 const ITEMS = {
@@ -806,6 +891,17 @@ const ITEMS = {
   'apple': { name: 'Apple', tex: 'apple', stackable: true, food: 4 },
   'bread': { name: 'Bread', tex: 'bread', stackable: true, food: 5 },
   'cooked_pork': { name: 'Cooked Porkchop', tex: 'cooked_pork', stackable: true, food: 8 },
+  'redstone': { name: 'Redstone', tex: 'redstone_item', stackable: true },
+  'lapis': { name: 'Lapis Lazuli', tex: 'lapis_item', stackable: true },
+  'emerald': { name: 'Emerald', tex: 'emerald_item', stackable: true },
+  'stone_axe': { name: 'Stone Axe', tex: 'stone_axe_tex', type: 'axe', speed: 4, durability: 132 },
+  'iron_axe': { name: 'Iron Axe', tex: 'iron_axe_tex', type: 'axe', speed: 6, durability: 251 },
+  'iron_shovel': { name: 'Iron Shovel', tex: 'iron_shovel_tex', type: 'shovel', speed: 6, durability: 251 },
+  'raw_beef': { name: 'Raw Beef', tex: 'raw_beef', stackable: true, food: 3 },
+  'cooked_beef': { name: 'Steak', tex: 'cooked_beef', stackable: true, food: 8 },
+  'raw_pork': { name: 'Raw Porkchop', tex: 'raw_pork', stackable: true, food: 3 },
+  'raw_chicken': { name: 'Raw Chicken', tex: 'raw_chicken', stackable: true, food: 2 },
+  'cooked_chicken': { name: 'Cooked Chicken', tex: 'cooked_chicken', stackable: true, food: 6 },
 };
 
 // ============================================================
@@ -1063,7 +1159,7 @@ let texAtlas, texAtlasMap;
 
 function buildTextureAtlas() {
   const names = Object.keys(textureCanvases);
-  const atlasSize = 512;
+  const atlasSize = 1024;
   const tileSize = TEX_SIZE;
   const cols = (atlasSize / tileSize) | 0;
   const c = document.createElement('canvas');
@@ -2397,6 +2493,7 @@ function updateHandAnimation(dt) {
 // ============================================================
 // BREAK OVERLAY
 // ============================================================
+let gameLoopPaused = false;
 let breakOverlayMesh;
 function updateBreakOverlay() {
   if (breakingBlock && breakProgress > 0) {
@@ -2406,12 +2503,12 @@ function updateBreakOverlay() {
 
     if (!breakOverlayMesh) {
       let geo = new THREE.BoxGeometry(1.01, 1.01, 1.01);
-      let mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, wireframe: true });
+      let mat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.0 });
       breakOverlayMesh = new THREE.Mesh(geo, mat);
       scene.add(breakOverlayMesh);
     }
     breakOverlayMesh.position.set(breakingBlock.x + 0.5, breakingBlock.y + 0.5, breakingBlock.z + 0.5);
-    breakOverlayMesh.material.opacity = pct * 0.5;
+    breakOverlayMesh.material.opacity = pct * 0.6;
     breakOverlayMesh.visible = true;
   } else if (breakOverlayMesh) {
     breakOverlayMesh.visible = false;
@@ -2526,6 +2623,17 @@ async function init3D() {
     e.preventDefault();
     console.log('WebGL context lost — pausing render');
   });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      gameLoopPaused = true;
+      console.log('Tab hidden — pausing game loop');
+    } else {
+      gameLoopPaused = false;
+      clock.getDelta(); // discard elapsed time
+      console.log('Tab visible — resuming game loop');
+    }
+  });
   renderer.domElement.addEventListener('webglcontextrestored', () => {
     console.log('WebGL context restored — rebuilding');
     buildTextureAtlas();
@@ -2633,7 +2741,7 @@ function updateChunks() {
 
 function gameLoop() {
   requestAnimationFrame(gameLoop);
-  if (renderer.getContext().isContextLost()) return;
+  if (gameLoopPaused || renderer.getContext().isContextLost()) return;
   let dt = Math.min(clock.getDelta(), 0.05);
 
   if (!gameStarted || paused) {
