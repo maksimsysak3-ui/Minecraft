@@ -966,6 +966,24 @@ const RECIPES_3x3 = [
   { pattern: [[8]], result: { block: 15, count: 1 } },
   // Brick block
   { pattern: [[16,16],[16,16]], result: { block: 16, count: 1 } },
+  // Stone axe
+  { pattern: [['P','P'],['P','S'],[0,'S']], materials: { P: 4, S: 'stick' }, result: { item: 'stone_axe', count: 1 } },
+  // Iron axe
+  { pattern: [['P','P'],['P','S'],[0,'S']], materials: { P: 'iron_ingot', S: 'stick' }, result: { item: 'iron_axe', count: 1 } },
+  // Iron shovel
+  { pattern: [['P'],['S'],['S']], materials: { P: 'iron_ingot', S: 'stick' }, result: { item: 'iron_shovel', count: 1 } },
+  // Oak stairs
+  { pattern: [['P',0,0],['P','P',0],['P','P','P']], materials: { P: 6 }, result: { block: 26, count: 4 } },
+  // Stone stairs
+  { pattern: [['P',0,0],['P','P',0],['P','P','P']], materials: { P: 4 }, result: { block: 27, count: 4 } },
+  // Oak slab
+  { pattern: [['P','P','P']], materials: { P: 6 }, result: { block: 28, count: 6 } },
+  // Stone slab
+  { pattern: [['P','P','P']], materials: { P: 4 }, result: { block: 29, count: 6 } },
+  // Stone bricks
+  { pattern: [['P','P'],['P','P']], materials: { P: 3 }, result: { block: 30, count: 4 } },
+  // Wool from leaves
+  { pattern: [[7,7],[7,7]], result: { block: 22, count: 1 } },
 ];
 
 // ============================================================
@@ -1015,6 +1033,7 @@ let breakProgress = 0;
 let breakMesh = null;
 let placeCooldown = 0;
 let animals = [];
+let droppedItems = [];
 let punchAnim = 0;
 let punchActive = false;
 let blockMeshes = {};
@@ -1364,6 +1383,25 @@ function spawnAnimal(x, y, z, type) {
 
   group.add(head);
 
+  // Eyes
+  let eyeGeo = new THREE.BoxGeometry(0.06, 0.06, 0.02);
+  let eyeWhite = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  let eyeBlack = new THREE.MeshLambertMaterial({ color: 0x111111 });
+
+  let eyeL = new THREE.Mesh(eyeGeo, eyeWhite);
+  eyeL.position.set(-bodyW * 0.15, 0.02, bodyW * 0.31);
+  head.add(eyeL);
+  let pupilL = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.02), eyeBlack);
+  pupilL.position.set(0, 0, 0.01);
+  eyeL.add(pupilL);
+
+  let eyeR = new THREE.Mesh(eyeGeo, eyeWhite);
+  eyeR.position.set(bodyW * 0.15, 0.02, bodyW * 0.31);
+  head.add(eyeR);
+  let pupilR = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.02), eyeBlack);
+  pupilR.position.set(0, 0, 0.01);
+  eyeR.add(pupilR);
+
   const legGeo = new THREE.BoxGeometry(0.15, bodyH * 0.6, 0.15);
   const legMat = new THREE.MeshLambertMaterial({ color: legColor });
   const legPositions = [
@@ -1416,6 +1454,73 @@ function updateAnimals(dt) {
       for (let i = 0; i < a.legs.length; i++) {
         a.legs[i].rotation.x = Math.sin(a.walkPhase + i * Math.PI * 0.5) * 0.3;
       }
+    }
+  }
+}
+
+// ============================================================
+// DROPPED ITEM ENTITIES
+// ============================================================
+function spawnDrop(x, y, z, id, count, isItem) {
+  let group = new THREE.Group();
+  group.position.set(x + 0.5, y + 0.5, z + 0.5);
+
+  let geo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+  let texName;
+  if (isItem) {
+    let it = ITEMS[id];
+    texName = it ? it.tex : 'dirt';
+  } else {
+    let b = BLOCKS[id];
+    texName = b ? (b.texSide || b.texTop || b.tex || 'dirt') : 'dirt';
+  }
+  let tc = textureCanvases[texName];
+  let tex = new THREE.CanvasTexture(tc || textureCanvases['dirt']);
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  let mat = new THREE.MeshLambertMaterial({ map: tex });
+  let mesh = new THREE.Mesh(geo, mat);
+  group.add(mesh);
+  scene.add(group);
+
+  droppedItems.push({
+    mesh: group, innerMesh: mesh, id, count, isItem,
+    x: x + 0.5, y: y + 0.5, z: z + 0.5,
+    vy: 3, bobPhase: Math.random() * Math.PI * 2,
+    age: 0, lifetime: 300
+  });
+}
+
+function updateDroppedItems(dt) {
+  for (let i = droppedItems.length - 1; i >= 0; i--) {
+    let d = droppedItems[i];
+    d.age += dt;
+    d.vy -= 15 * dt;
+    d.y += d.vy * dt;
+
+    let groundY = 0;
+    for (let gy = Math.floor(d.y); gy >= 0; gy--) {
+      if (getBlock(Math.floor(d.x), gy, Math.floor(d.z)) !== 0) { groundY = gy + 1.3; break; }
+    }
+    if (d.y < groundY) { d.y = groundY; d.vy = 0; }
+
+    d.bobPhase += dt * 2;
+    d.mesh.position.set(d.x, d.y + Math.sin(d.bobPhase) * 0.1, d.z);
+    d.innerMesh.rotation.y += dt * 2;
+
+    // Pickup by player
+    let dx = playerPos.x - d.x, dy = playerPos.y - 1 - d.y, dz = playerPos.z - d.z;
+    if (dx*dx + dy*dy + dz*dz < 2) {
+      if (addToInventory(d.id, d.count, d.isItem)) {
+        scene.remove(d.mesh);
+        d.mesh.children.forEach(c => { if(c.geometry) c.geometry.dispose(); if(c.material) { if(c.material.map) c.material.map.dispose(); c.material.dispose(); }});
+        droppedItems.splice(i, 1);
+      }
+    }
+
+    if (d.age > d.lifetime) {
+      scene.remove(d.mesh);
+      droppedItems.splice(i, 1);
     }
   }
 }
@@ -2117,9 +2222,9 @@ function updateBlockInteraction(dt) {
           // Break block
           let dropId = block.drop ?? hit.blockId;
           let dropItem = block.dropItem;
+          if (dropItem) spawnDrop(hit.x, hit.y, hit.z, dropItem, 1, true);
+          else spawnDrop(hit.x, hit.y, hit.z, dropId, 1, false);
           setBlock(hit.x, hit.y, hit.z, 0);
-          if (dropItem) addToInventory(dropItem, 1, true);
-          else addToInventory(dropId, 1, false);
           rebuildNearbyChunks(hit.x, hit.z);
           breakingBlock = null;
           breakProgress = 0;
@@ -2150,6 +2255,35 @@ function updateBlockInteraction(dt) {
     else punchActive = false;
     breakingBlock = null;
     breakProgress = 0;
+  }
+
+  // Hit animals with left click
+  if (mouseDown && !hit) {
+    let dir2 = new THREE.Vector3(0, 0, -1);
+    dir2.applyQuaternion(camera.quaternion);
+    for (let a of animals) {
+      let toAnimal = new THREE.Vector3(a.mesh.position.x - camera.position.x, a.mesh.position.y - camera.position.y, a.mesh.position.z - camera.position.z);
+      let dist = toAnimal.length();
+      if (dist > 5) continue;
+      toAnimal.normalize();
+      let dot = dir2.dot(toAnimal);
+      if (dot > 0.9) {
+        let dmg = 1;
+        let held = inventory[selectedSlot];
+        if (held && held.isItem && ITEMS[held.id]?.type === 'sword') dmg = ITEMS[held.id].damage || 4;
+        a.hp -= dmg;
+        a.mesh.position.x += dir2.x * 0.3;
+        a.mesh.position.z += dir2.z * 0.3;
+        if (a.hp <= 0) {
+          let dropType = a.type === 'cow' ? 'raw_beef' : a.type === 'pig' ? 'raw_pork' : 'raw_chicken';
+          spawnDrop(a.mesh.position.x|0, (a.mesh.position.y|0), a.mesh.position.z|0, dropType, 1 + ((Math.random()*2)|0), true);
+          scene.remove(a.mesh);
+          animals.splice(animals.indexOf(a), 1);
+        }
+        punchActive = true;
+        break;
+      }
+    }
   }
 
   placeCooldown -= dt;
@@ -2196,6 +2330,7 @@ function placeBlock() {
   placeCooldown = 0.2;
 }
 
+let eatingTimer = 0;
 function eatFood(slot) {
   if (food >= maxFood) return;
   let item = ITEMS[slot.id];
@@ -2204,6 +2339,7 @@ function eatFood(slot) {
   slot.count--;
   if (slot.count <= 0) inventory[selectedSlot] = null;
   updateHotbar();
+  eatingTimer = 0.5;
 }
 
 // ============================================================
@@ -2500,6 +2636,11 @@ function disposeObject(obj) {
 function updateHandAnimation(dt) {
   if (!handMesh && !heldItemMesh) return;
   let target = heldItemMesh || handMesh;
+  if (eatingTimer > 0) {
+    eatingTimer -= dt;
+    target.position.x += (0 - target.position.x) * 0.3;
+    target.position.y += (0.1 - target.position.y) * 0.3;
+  }
   let baseY = heldItemMesh ? -0.35 : -0.4;
 
   updateHeldItemMesh();
@@ -2784,7 +2925,11 @@ function gameLoop() {
   updateBreakOverlay();
   updateDayNight(dt);
   updateAnimals(dt);
+  updateDroppedItems(dt);
   updateChunks();
+  if (!window._lastSave) window._lastSave = 0;
+  window._lastSave += dt;
+  if (window._lastSave > 30) { window._lastSave = 0; saveGame(); }
   updateTooltip();
   updateHealthBar();
   updateFoodBar();
@@ -2968,6 +3113,10 @@ async function startGame(mode) {
   await sleep(200);
 
   generateWorld();
+  if (localStorage.getItem('minecraft_save')) {
+    loadGame();
+    lastChunkX = -999; lastChunkZ = -999;
+  }
   bar.style.width = '70%';
   text.textContent = 'Spawning animals...';
   await sleep(200);
@@ -3009,6 +3158,32 @@ async function startGame(mode) {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ============================================================
+// SAVE / LOAD SYSTEM
+// ============================================================
+function saveGame() {
+  let saveData = {
+    world: {},
+    playerPos, health, food, xp, dayTime, inventory: inventory.map(s => s ? {...s} : null), selectedSlot
+  };
+  for (let key in world) saveData.world[key] = world[key];
+  try { localStorage.setItem('minecraft_save', JSON.stringify(saveData)); } catch(e) {}
+}
+
+function loadGame() {
+  try {
+    let data = JSON.parse(localStorage.getItem('minecraft_save'));
+    if (!data) return false;
+    world = data.world || {};
+    playerPos.x = data.playerPos.x; playerPos.y = data.playerPos.y; playerPos.z = data.playerPos.z;
+    health = data.health || 20; food = data.food || 20; xp = data.xp || 0;
+    dayTime = data.dayTime || 0.25;
+    inventory = data.inventory || new Array(36).fill(null);
+    selectedSlot = data.selectedSlot || 0;
+    return true;
+  } catch(e) { return false; }
+}
 
 // ============================================================
 // BOOT
