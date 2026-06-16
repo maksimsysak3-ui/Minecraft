@@ -828,6 +828,18 @@ createTexture('cooked_pork', (ctx, s) => {
   fillRect(ctx, 3, 8, 10, 1, '#805030');
 });
 
+createTexture('redstone_item', (ctx, s) => { ctx.clearRect(0,0,s,s); fillRect(ctx,5,3,6,10,'#cc2020'); fillRect(ctx,6,2,4,1,'#dd3030'); px(ctx,7,6,'#ff4040'); });
+createTexture('lapis_item', (ctx, s) => { ctx.clearRect(0,0,s,s); fillRect(ctx,4,4,8,8,'#2244aa'); fillRect(ctx,5,3,6,1,'#3355bb'); px(ctx,6,5,'#4466cc'); });
+createTexture('emerald_item', (ctx, s) => { ctx.clearRect(0,0,s,s); fillRect(ctx,5,2,6,3,'#40ee60'); fillRect(ctx,4,5,8,4,'#30cc50'); fillRect(ctx,5,9,6,3,'#20aa40'); fillRect(ctx,6,12,4,1,'#108830'); px(ctx,6,3,'#70ff90'); });
+createTexture('raw_beef', (ctx, s) => { ctx.clearRect(0,0,s,s); fillRect(ctx,3,4,10,8,'#aa3333'); fillRect(ctx,4,5,3,3,'#ee8888'); fillRect(ctx,8,6,4,3,'#ee8888'); });
+createTexture('cooked_beef', (ctx, s) => { ctx.clearRect(0,0,s,s); fillRect(ctx,3,4,10,8,'#8b4513'); fillRect(ctx,4,5,3,3,'#a0522d'); fillRect(ctx,8,6,4,3,'#a0522d'); fillRect(ctx,3,8,10,1,'#6b3510'); });
+createTexture('raw_pork', (ctx, s) => { ctx.clearRect(0,0,s,s); fillRect(ctx,3,5,10,6,'#f0a0a0'); fillRect(ctx,4,6,3,2,'#cc6666'); fillRect(ctx,9,7,3,2,'#cc6666'); });
+createTexture('raw_chicken', (ctx, s) => { ctx.clearRect(0,0,s,s); fillRect(ctx,4,4,8,8,'#f5d0b0'); fillRect(ctx,5,5,2,3,'#e0b090'); fillRect(ctx,6,12,4,2,'#daa060'); });
+createTexture('cooked_chicken', (ctx, s) => { ctx.clearRect(0,0,s,s); fillRect(ctx,4,4,8,8,'#c88050'); fillRect(ctx,5,5,2,3,'#a06030'); fillRect(ctx,6,12,4,2,'#906020'); fillRect(ctx,4,8,8,1,'#805030'); });
+createTexture('stone_axe_tex', (ctx) => { fillRect(ctx,4,1,5,2,'#aaa'); fillRect(ctx,3,3,3,4,'#aaa'); fillRect(ctx,7,3,2,11,'#654'); });
+createTexture('iron_axe_tex', (ctx) => { fillRect(ctx,4,1,5,2,'#ddd'); fillRect(ctx,3,3,3,4,'#ddd'); fillRect(ctx,7,3,2,11,'#654'); });
+createTexture('iron_shovel_tex', (ctx) => { fillRect(ctx,6,1,4,5,'#ddd'); fillRect(ctx,7,6,2,9,'#654'); });
+
 // ============================================================
 // BLOCK DEFINITIONS
 // ============================================================
@@ -1103,16 +1115,33 @@ function generateChunk(cx, cz) {
       for (let y = 1; y < h - 4; y++) {
         let ore = noiseGen3.noise2D(x * 0.1 + y * 0.3, z * 0.1 + y * 0.2);
         if (y < 12 && ore > 0.7) setBlock(x, y, z, 13); // diamond
+        else if (y < 16 && ore > 0.68) setBlock(x, y, z, 34); // redstone
+        else if (y < 20 && ore > 0.78) setBlock(x, y, z, 36); // emerald
         else if (y < 25 && ore > 0.65) setBlock(x, y, z, 12); // gold
+        else if (y < 30 && ore > 0.72) setBlock(x, y, z, 35); // lapis
         else if (y < 40 && ore > 0.55) setBlock(x, y, z, 11); // iron
         else if (ore > 0.5) setBlock(x, y, z, 10); // coal
         else setBlock(x, y, z, 3);
+      }
+
+      // Cave carving
+      for (let y = 2; y < h - 5; y++) {
+        let caveNoise = noiseGen.noise2D(x * 0.05 + y * 0.05, z * 0.05) * 0.5 +
+                        noiseGen2.noise2D(x * 0.1 + y * 0.1, z * 0.1) * 0.3 +
+                        noiseGen3.noise2D(x * 0.2, z * 0.2 + y * 0.15) * 0.2;
+        if (caveNoise > 0.55 && y > 3) {
+          setBlock(x, y, z, 0); // carve out cave
+        }
       }
 
       // Top layers
       if (biome === 'desert') {
         for (let y = Math.max(1, h - 4); y < h; y++) setBlock(x, y, z, 8);
         setBlock(x, h, z, 8);
+        if (h > SEA_LEVEL && noise(x * 1.2, z * 1.2, 50) > 0.94) {
+          let cactusH = 1 + ((noise(x, z, 51) * 3) | 0);
+          for (let cy = 1; cy <= cactusH; cy++) setBlock(x, h + cy, z, 37);
+        }
       } else if (biome === 'snow') {
         for (let y = Math.max(1, h - 4); y < h; y++) setBlock(x, y, z, 2);
         setBlock(x, h, z, 19);
