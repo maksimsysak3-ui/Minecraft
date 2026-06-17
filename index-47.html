@@ -96,6 +96,8 @@ canvas{display:block;}
 .recipe-entry canvas{width:24px;height:24px;image-rendering:pixelated;flex-shrink:0;}
 .recipe-entry span{font-size:11px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .recipe-unavailable{opacity:0.4;pointer-events:none;}
+#water-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,30,120,0.35);z-index:80;display:none;pointer-events:none;transition:opacity 0.3s;}
+#water-overlay .water-caustics{position:absolute;top:0;left:0;width:100%;height:100%;background:repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(100,180,255,0.06) 20px,rgba(100,180,255,0.06) 40px);}
 #cursor-item{position:fixed;z-index:9999;pointer-events:none;display:none;}
 #cursor-item canvas{width:32px;height:32px;image-rendering:pixelated;}
 #cursor-item .cursor-count{position:absolute;bottom:0;right:0;color:#fff;font-size:10px;text-shadow:1px 1px #000;font-weight:bold;}
@@ -156,6 +158,7 @@ canvas{display:block;}
 <div id="bars"><div id="bars-inner"><div id="health-bar"></div><div id="food-bar"></div></div></div>
 <div id="xp-bar-outer"><div id="xp-bar-inner"></div></div>
 <div id="crosshair"></div>
+<div id="water-overlay"><div class="water-caustics"></div></div>
 <div id="debug"></div>
 <div id="tooltip"></div>
 
@@ -208,7 +211,7 @@ canvas{display:block;}
 // ============================================================
 // TEXTURE GENERATOR - Creates pixel art textures for all blocks
 // ============================================================
-const TEX_SIZE = 32;
+const TEX_SIZE = 16;
 const textures = {};
 const textureCanvases = {};
 
@@ -217,6 +220,7 @@ function createTexture(name, drawFn) {
   c.width = c.height = TEX_SIZE;
   c._texName = name;
   const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, TEX_SIZE, TEX_SIZE);
   drawFn(ctx, TEX_SIZE);
   textureCanvases[name] = c;
   return c;
@@ -366,8 +370,17 @@ createTexture('sand', (ctx, s) => {
 // WATER
 createTexture('water', (ctx, s) => {
   for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
-    let b = 150 + noise(x, y, 11) * 60;
-    px(ctx, x, y, `rgba(30,60,${b|0},0.7)`);
+    let wave = Math.sin(x * 0.8 + y * 0.5) * 15;
+    let b = 140 + noise(x, y, 11) * 40 + wave;
+    let g = 60 + noise(x, y, 12) * 20 + wave * 0.3;
+    px(ctx, x, y, `rgba(${20},${g|0},${b|0},0.75)`);
+  }
+  // Subtle highlight streaks
+  for (let x = 0; x < s; x++) {
+    let wy = (Math.sin(x * 0.9) * 2 + 4) | 0;
+    px(ctx, x, wy, 'rgba(120,180,255,0.3)');
+    let wy2 = (Math.sin(x * 0.7 + 2) * 2 + 10) | 0;
+    px(ctx, x, wy2, 'rgba(100,160,240,0.25)');
   }
 });
 
@@ -1207,7 +1220,7 @@ let texAtlas, texAtlasMap;
 
 function buildTextureAtlas() {
   const names = Object.keys(textureCanvases);
-  const atlasSize = 1024;
+  const atlasSize = 512;
   const tileSize = TEX_SIZE;
   const cols = (atlasSize / tileSize) | 0;
   const c = document.createElement('canvas');
@@ -1314,7 +1327,7 @@ function buildChunkMesh(cx, cz) {
     map: texAtlas,
     vertexColors: true,
     alphaTest: 0.1,
-    transparent: false,
+    transparent: true,
     side: THREE.FrontSide,
   });
 
@@ -2075,6 +2088,22 @@ function solidAt(bx, by, bz) {
   return def && def.solid !== false && !def.liquid;
 }
 
+function waterAt(bx, by, bz) {
+  return getBlock(bx, by, bz) === 9;
+}
+
+function playerInWater() {
+  let feetY = playerPos.y - PLAYER_EYE_HEIGHT;
+  return waterAt(Math.floor(playerPos.x), Math.floor(feetY + 0.5), Math.floor(playerPos.z));
+}
+
+function playerHeadInWater() {
+  return waterAt(Math.floor(playerPos.x), Math.floor(playerPos.y), Math.floor(playerPos.z));
+}
+
+let inWater = false;
+let swimBob = 0;
+
 function playerCollides(px, feetY, pz) {
   let x0 = Math.floor(px - PLAYER_HALF), x1 = Math.floor(px + PLAYER_HALF);
   let z0 = Math.floor(pz - PLAYER_HALF), z1 = Math.floor(pz + PLAYER_HALF);
@@ -2092,7 +2121,15 @@ function updatePlayer(dt) {
   // feetY is the Y of the bottom of the player; eyeY = feetY + PLAYER_EYE_HEIGHT
   let feetY = playerPos.y - PLAYER_EYE_HEIGHT;
 
-  let speed = sprinting ? SPRINT_SPEED : WALK_SPEED;
+  inWater = playerInWater();
+  let headUnderwater = playerHeadInWater();
+
+  // Water overlay
+  let waterOverlay = document.getElementById('water-overlay');
+  if (waterOverlay) waterOverlay.style.display = headUnderwater ? 'block' : 'none';
+
+  // Slower in water
+  let speed = inWater ? WALK_SPEED * 0.45 : (sprinting ? SPRINT_SPEED : WALK_SPEED);
 
   // Forward is -Z in camera space, but we use yaw where 0 = looking toward +Z
   let fwdX = -Math.sin(yaw);
@@ -2109,11 +2146,28 @@ function updatePlayer(dt) {
   let len = Math.sqrt(moveX * moveX + moveZ * moveZ);
   if (len > 0) { moveX = moveX / len * speed; moveZ = moveZ / len * speed; }
 
-  playerVel.y += GRAVITY * dt;
+  if (inWater) {
+    // Water physics: reduced gravity, drag, swimming
+    playerVel.y += GRAVITY * 0.15 * dt; // Much less gravity
+    playerVel.y *= (1 - 3.5 * dt); // Water drag
 
-  if (keys['Space'] && onGround) {
-    playerVel.y = JUMP_VEL;
-    onGround = false;
+    if (keys['Space']) {
+      playerVel.y = Math.min(playerVel.y + 12 * dt, 3.5); // Swim up
+    }
+    if (keys['ShiftLeft']) {
+      playerVel.y = Math.max(playerVel.y - 8 * dt, -3); // Sink down
+    }
+
+    // Swim bobbing
+    swimBob += dt * 3;
+  } else {
+    playerVel.y += GRAVITY * dt;
+    swimBob = 0;
+
+    if (keys['Space'] && onGround) {
+      playerVel.y = JUMP_VEL;
+      onGround = false;
+    }
   }
 
   // Move X
@@ -2163,7 +2217,22 @@ function updatePlayer(dt) {
     health = Math.min(maxHealth, health + dt * 0.5);
   }
 
-  camera.position.set(playerPos.x, playerPos.y, playerPos.z);
+  // Swim camera bob
+  let eyeY = playerPos.y;
+  if (inWater && (moveX !== 0 || moveZ !== 0)) {
+    eyeY += Math.sin(swimBob) * 0.06;
+  }
+  camera.position.set(playerPos.x, eyeY, playerPos.z);
+
+  // Underwater fog
+  if (playerHeadInWater()) {
+    scene.fog.near = 2;
+    scene.fog.far = 20;
+    scene.fog.color.setRGB(0.05, 0.12, 0.35);
+  } else {
+    scene.fog.near = 40;
+    scene.fog.far = RENDER_DIST * CHUNK_SIZE;
+  }
 }
 
 function respawn() {
